@@ -1,4 +1,4 @@
-import requests, json, os, smtplib, random, time, re
+import requests, json, os, smtplib, random, time
 from email.mime.text import MIMEText
 from bs4 import BeautifulSoup
 
@@ -11,74 +11,59 @@ BLOG_URL = "https://hydhirehub.blogspot.com"
 
 def is_english_india_job(title, desc, location=""):
     text = (title + " " + desc + " " + location).lower()
-    
-    # 1. GERMAN REJECT LIST - Okka word unna skip
-    german_bad = ["unser mandant", "stammsitz", "harz", "zähl", "führenden", "anbietern", "für", "über", "mit", "und", "der", "die", "das", "ein", "eine", "du hast", "aufgaben", "mitarbeit", "erfahrung", "unternehmen", "münchen", "berlin"]
-    german_count = sum(1 for w in german_bad if w in text)
-    if german_count >= 3:  # 3 German words unte German job
+    # German reject
+    german_bad = ["unser mandant", "stammsitz", "führenden", "anspr", "für", "über", "mit", "und", "der", "die", "das", "unser", "du hast", "aufgaben", "erfahrung", "unternehmen", "münchen"]
+    if sum(1 for w in german_bad if w in text) >= 3:
         return False
-    
-    # Special chars ä ö ü ß unte German
     if any(c in text for c in ["ä", "ö", "ü", "ß"]):
         return False
-
-    # 2. MUST HAVE INDIA or HYDERABAD or BANGALORE
-    india_keywords = ["india", "hyderabad", "bangalore", "bengaluru", "chennai", "pune", "mumbai", "hitec", "gachibowli"]
-    has_india = any(k in text for k in india_keywords)
-    
-    # Remote jobs ki kuda India undali
-    if not has_india:
-        return False
-
-    # 3. English check - 90% English letters
+    # Must have India
+    india_keywords = ["india", "hyderabad", "bangalore", "bengaluru", "chennai", "pune", "mumbai", "hitec", "gachibowli", "telangana"]
+    if not any(k in text for k in india_keywords):
+        # Remotive lo location remote unna India jobs ye, so allow if source is India API
+        if "india" not in location.lower() and "hyderabad" not in location.lower():
+            return False
     return True
 
 def fetch_only_india_english():
     jobs=[]
-    
-    # 1. Remotive - India filter - BEST
+    # 1. Remotive - India
     try:
         r=requests.get("https://remotive.com/api/remote-jobs?limit=30", timeout=20).json()
         for j in r['jobs']:
-            title=j['title']; desc=j['description']; loc=j.get('candidate_required_location','')
-            if is_english_india_job(title, desc, loc):
-                jobs.append({"title":title[:70],"company":j['company_name'],"link":j['url'],"desc":desc[:800],"location":"Hyderabad (Remote)"})
+            if is_english_india_job(j['title'], j['description'], j.get('candidate_required_location','')):
+                jobs.append({"title":j['title'][:70],"company":j['company_name'],"link":j['url'],"desc":j['description'][:800],"location":"Hyderabad"})
         print(f"Remotive India: {len(jobs)}")
     except Exception as e: print(f"Remotive fail {e}")
 
-    # 2. Jobicy - India only
+    # 2. Jobicy - India only - BEST
     try:
         r=requests.get("https://jobicy.com/api/v2/remote-jobs?count=30&geo=india", timeout=20).json()
         for j in r.get('jobs',[]):
-            title=j['jobTitle']; desc=j['jobDescription']
-            if is_english_india_job(title, desc, "india"):
-                jobs.append({"title":title[:70],"company":j['companyName'],"link":j['url'],"desc":desc[:800],"location":"Hyderabad"})
+            if is_english_india_job(j['jobTitle'], j['jobDescription'], "india"):
+                jobs.append({"title":j['jobTitle'][:70],"company":j['companyName'],"link":j['url'],"desc":j['jobDescription'][:800],"location":"Hyderabad"})
         print(f"Jobicy India total: {len(jobs)}")
-    except: pass
+    except Exception as e: print(f"Jobicy fail {e}")
 
-    # 3. RemoteOK - India tag
+    # 3. RemoteOK India
     try:
         r=requests.get("https://remoteok.com/api?tags=india", headers={"User-Agent":"Mozilla/5.0"}, timeout=15).json()
-        for j in r[1:10]:
-            title=j.get('position',''); desc=j.get('description','')
-            if is_english_india_job(title, desc, "india"):
-                jobs.append({"title":title[:70],"company":j.get('company','Top MNC'),"link":j.get('url',''),"desc":desc[:800],"location":"Hyderabad"})
+        for j in r[1:8]:
+            if is_english_india_job(j.get('position',''), j.get('description',''), "india"):
+                jobs.append({"title":j.get('position','')[:70],"company":j.get('company','Top MNC'),"link":j.get('url',''),"desc":j.get('description','')[:800],"location":"Hyderabad"})
     except: pass
 
-    # 4. Backup - If no India jobs, use genuine Hyderabad template (100% English India)
+    # 4. Backup Hyderabad - 100% English
     if len(jobs) < 2:
-        print("Using 100% English Hyderabad Backup")
         backup=[
-            {"title":"Software Engineer - Fresher","company":"Infosys Hyderabad","link":"https://www.infosys.com/careers","desc":"Infosys Hyderabad is hiring Software Engineer for HITEC City location. B.E/B.Tech 2023-2025 batch can apply. Good communication and coding skills required."},
-            {"title":"Python Developer","company":"TCS Hyderabad","link":"https://www.tcs.com/careers","desc":"TCS Hyderabad Gachibowli hiring Python Developer. Freshers with Python knowledge can apply. Work from Hyderabad office."},
-            {"title":"Java Developer","company":"Wipro Hyderabad","link":"https://careers.wipro.com","desc":"Wipro Hyderabad Madhapur hiring Java Developer for 2023-2025 batch. Any graduate can apply."},
+            {"title":"Software Engineer Fresher","company":"Infosys","link":"https://www.infosys.com/careers","desc":"Infosys Hyderabad HITEC City hiring Software Engineer for 2023-2025 batch. B.E/B.Tech can apply."},
+            {"title":"Python Developer","company":"TCS","link":"https://www.tcs.com/careers","desc":"TCS Hyderabad Gachibowli hiring Python Developer. Freshers with Python knowledge can apply."},
         ]
-        for b in backup:
-            jobs.append({**b, "location":"Hyderabad"})
+        for b in backup: jobs.append({**b, "location":"Hyderabad"})
 
     random.shuffle(jobs)
-    print(f"FINAL 100% ENGLISH INDIA JOBS: {len(jobs)}")
-    return jobs
+    print(f"FINAL ENGLISH INDIA JOBS: {len(jobs)}")
+    return jobs[:10]
 
 def is_posted(l):
     try:
@@ -95,26 +80,54 @@ def save_link(l):
     with open('posted.json','w') as f: json.dump(d[-500:], f)
 
 def post_blogger(job):
-    html=f"""<div style="font-family:Arial"><h1>{job['company']} - {job['title']} Hyderabad 2026</h1><p><b>Hyderabad Jobs:</b> {job['company']} hiring in Hyderabad.</p><div style="background:#eef2ff;padding:15px"><p>💼 {job['title']}<br>🏢 {job['company']}<br>🎓 B.E/B.Tech/B.Sc/BCA<br>🔹 2023/2024/2025<br>🆕 Freshers<br>📍 Hyderabad</p></div><p>{job['desc'][:700]}</p><p>Location: Hyderabad - HITEC City, Gachibowli. Only English India jobs posted on HydHireHub.</p><div style="text-align:center;margin:20px"><a href="{job['link']}" style="background:#0d6efd;color:#fff;padding:15px 40px;text-decoration:none;border-radius:8px;font-weight:bold">🌐 Apply Here</a></div></div>"""
+    html=f"""
+    <div style="font-family:Arial;line-height:1.8;">
+    <h1>{job['company']} Hiring {job['title']} - Hyderabad Jobs 2026</h1>
+    <p><b>HydHireHub Hyderabad Jobs:</b> {job['company']} hiring {job['title']} in Hyderabad location.</p>
+    <div style="background:#eef2ff;padding:15px;border-radius:8px;">
+    <p>💼 Job Role: {job['title']}<br>🏢 Company: {job['company']}<br>🎓 Qualification: B.E/B.Tech/B.Sc/BCA<br>🔹 Batch: 2023/2024/2025<br>🆕 Experience: Freshers<br>📍 Location: Hyderabad</p>
+    </div>
+    <h3>Job Description:</h3><p>{job['desc'][:800]}</p>
+    <p>Work Location: Hyderabad - HITEC City, Gachibowli, Madhapur. Candidates willing to work in Hyderabad can apply.</p>
+    <div style="text-align:center;margin:30px 0;">
+    <a href="{job['link']}" style="background:#0d6efd;color:#fff;padding:16px 45px;text-decoration:none;border-radius:8px;font-weight:bold;font-size:18px;">🌐 Apply Here - Original Company Link</a>
+    </div>
+    </div>
+    """
     msg=MIMEText(html,"html")
-    msg['Subject']=f"{job['company']} {job['title']} Hyderabad Jobs 2026"
+    msg['Subject']=f"{job['company']} Off Campus Drive - {job['title']} Hyderabad 2026"
     msg['From']=YOUR_GMAIL; msg['To']=BLOGGER_EMAIL
     try:
         with smtplib.SMTP_SSL('smtp.gmail.com',465) as s:
             s.login(YOUR_GMAIL, APP_PASSWORD); s.send_message(msg)
-        print(f"BLOGGER OK: {job['title']}")
+        print(f"BLOGGER POSTED: {job['company']} - {job['title']}")
         return True
     except Exception as e:
         print(f"BLOGGER FAIL {e}"); return False
 
-def get_latest_url():
-    time.sleep(70)
-    try:
-        r=requests.get(f"{BLOG_URL}/feeds/posts/default?alt=rss&max-results=1", timeout=15)
-        return BeautifulSoup(r.text,'xml').find('item').find('link').text
-    except: return BLOG_URL
+def get_latest_url(job):
+    print(f"Waiting for Blogger: {job['company']}")
+    time.sleep(90)
+    for attempt in range(3):
+        try:
+            r=requests.get(f"{BLOG_URL}/feeds/posts/default?alt=rss&max-results=10", timeout=15)
+            soup=BeautifulSoup(r.text,'xml')
+            items=soup.find_all('item')
+            # Find exact match
+            for item in items:
+                t=item.title.text.lower()
+                if job['company'].split()[0].lower() in t:
+                    url=item.find('link').text
+                    print(f"CORRECT URL FOUND: {url}")
+                    return url
+            if items:
+                return items[0].find('link').text
+        except Exception as e:
+            print(f"RSS try {attempt} fail {e}")
+        time.sleep(20)
+    return BLOG_URL
 
-def post_telegram(job, url):
+def post_telegram(job, blog_url):
     text=f"""🔥 {job['company']} Off Campus Drive 2026
 
 💼 Job Role: {job['title']}
@@ -125,7 +138,7 @@ def post_telegram(job, url):
 📍 Location: Hyderabad
 
 🌐 Apply Here:
-{url}
+{blog_url}
 
 ━━━━━━━━━━━━━━━━━━━━
 📢 Join Our Telegram Channel
@@ -134,13 +147,22 @@ https://t.me/HydHireHub
 🌐 Visit Our Blog
 https://hydhirehub.blogspot.com
 """
-    requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", data={"chat_id":CHANNEL_ID, "text":text})
+    try:
+        requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", data={"chat_id":CHANNEL_ID, "text":text}, timeout=15)
+        print("TELEGRAM OK - Correct URL")
+    except Exception as e: print(f"Telegram fail {e}")
 
+# MAIN RUN
 jobs=fetch_only_india_english()
+posted=False
 for job in jobs:
     if not is_posted(job['link']):
         if post_blogger(job):
-            b_url=get_latest_url()
+            b_url=get_latest_url(job)
             post_telegram(job, b_url)
             save_link(job['link'])
+            posted=True
             break
+
+if not posted:
+    print("No new job - all posted")
