@@ -7,10 +7,7 @@ jobs:
   bot:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        run: |
-          git clone https://github.com/${{ github.repository }}.git.
-          git checkout ${{ github.ref_name }}
+      - uses: actions/checkout@v4
 
       - name: Run Bot
         env:
@@ -23,10 +20,10 @@ jobs:
           pip install requests beautifulsoup4 lxml
           python main.py
 
-      - name: Save
+      - name: Save posted jobs
         run: |
           git config --global user.name "bot"
           git config --global user.email "bot@hyd.com"
           git add posted.json || true
           git commit -m "hyd jobs" || true
-          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git || true
+          git push || true
