@@ -9,7 +9,7 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN", "8978732819:AAElHZKLxERyG9b0psFdyV33C8lU
 CHANNEL_ID = os.environ.get("CHANNEL_ID", "-1003973586076")
 YOUR_GMAIL = os.environ.get("YOUR_GMAIL", "satishkasarla206@gmail.com")
 APP_PASSWORD = os.environ.get("APP_PASSWORD", "mzcw ylvz cmol cgqk")
-BLOGGER_EMAIL = os.environ.get("BLOGGER_EMAIL", "atishkasarla206.hydhirehub123@blogger.com")
+BLOGGER_EMAIL = os.environ.get("BLOGGER_EMAIL", "satishkasarla206.hydhirehub123@blogger.com")
 
 # --- 1. INTERNSHALA ---
 def get_internshala():
