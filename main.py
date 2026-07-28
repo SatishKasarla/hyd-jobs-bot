@@ -1,48 +1,38 @@
 import requests, json, os, smtplib, random, time
 from email.mime.text import MIMEText
 from bs4 import BeautifulSoup
-from datetime import datetime
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 CHANNEL_ID = os.environ.get("CHANNEL_ID")
 YOUR_GMAIL = os.environ.get("YOUR_GMAIL")
 APP_PASSWORD = os.environ.get("APP_PASSWORD")
 BLOGGER_EMAIL = os.environ.get("BLOGGER_EMAIL")
+BLOG_URL = "https://hydhirehub.blogspot.com"
 
-print(f"Bot Token Exists: {bool(BOT_TOKEN)}")
-print(f"Channel ID: {CHANNEL_ID}")
-print(f"Gmail Exists: {bool(YOUR_GMAIL)}")
-
-def get_jobs():
+def get_fresh_jobs():
     jobs=[]
-    # METHOD 1: Indeed RSS - Always Works
+    # 1. ArbeitNow - Daily fresh jobs
     try:
-        print("Trying Indeed RSS...")
-        r = requests.get("https://rss.indeed.com/rss?q=Software+Developer&l=Hyderabad", headers={"User-Agent":"Mozilla/5.0"}, timeout=15)
-        soup = BeautifulSoup(r.text, 'xml')
-        items = soup.find_all('item')
-        print(f"Indeed Found: {len(items)}")
-        for item in items[:2]:
-            title = item.title.text.strip()
-            link = item.link.text.strip()
-            jobs.append({"title": title[:50], "company": "Top MNC", "link": link, "source": "Indeed"})
-    except Exception as e:
-        print(f"Indeed Error: {e}")
+        r=requests.get("https://www.arbeitnow.com/api/job-board-api", timeout=15).json()
+        for j in r['data']:
+            t=j['title'].lower()
+            if any(k in t for k in ['developer','engineer','python','java','react','intern','analyst']):
+                jobs.append({"title":j['title'], "company":j['company_name'], "link":j['url'], "desc":j['description'][:400], "type":j.get('job_types','')})
+    except: pass
+    # 2. Remotive
+    try:
+        r=requests.get("https://remotive.com/api/remote-jobs?limit=20", timeout=15).json()
+        for j in r['jobs']:
+            jobs.append({"title":j['title'], "company":j['company_name'], "link":j['url'], "desc":j['description'][:400], "type":j.get('job_type','')})
+    except: pass
 
-    # METHOD 2: Fallback - If Indeed fails, use ready jobs
-    if not jobs:
-        print("Using Fallback Jobs - Indeed Blocked")
-        jobs = [
-            {"title": "Software Engineer", "company": "TCS", "link": "https://www.tcs.com/careers", "source": "TCS Careers"},
-            {"title": "Python Developer", "company": "Infosys", "link": "https://www.infosys.com/careers", "source": "Infosys Careers"},
-        ]
-    return jobs
+    random.shuffle(jobs)
+    print(f"Total Fresh Jobs Fetched: {len(jobs)}")
+    return jobs[:5]
 
 def is_posted(link):
     try:
-        with open('posted.json','r') as f: 
-            data=json.load(f)
-            return link in data
+        with open('posted.json','r') as f: return link in json.load(f)
     except: return False
 
 def save_link(link):
@@ -52,63 +42,72 @@ def save_link(link):
             with open('posted.json','r') as f: data=json.load(f)
         except: pass
     data.append(link)
-    with open('posted.json','w') as f: json.dump(data[-50:], f)
+    with open('posted.json','w') as f: json.dump(data[-200:], f)
 
-def post_telegram(job):
-    text = f"""🔥 {job['company']} Off Campus Drive 2026
+def post_blogger(job):
+    html=f"""
+    <h2>{job['title']} at {job['company']} - {job['type']} | Hyderabad</h2>
+    <p><b>Company:</b> {job['company']}<br><b>Role:</b> {job['title']}<br><b>Type:</b> {job['type']}<br><b>Location:</b> Remote / Hyderabad</p>
+    <p>{job['desc']}</p>
+    <p><a href="{job['link']}" style="background:#0d6efd;color:#fff;padding:12px 25px;text-decoration:none;border-radius:6px;display:inline-block;">Apply Now</a></p>
+    <p><br>More Jobs: {BLOG_URL} | Telegram: https://t.me/HydHireHub</p>"""
+    msg=MIMEText(html,"html")
+    msg['Subject']=f"{job['title']} - {job['company']} Hiring 2026"
+    msg['From']=YOUR_GMAIL; msg['To']=BLOGGER_EMAIL
+    try:
+        with smtplib.SMTP_SSL('smtp.gmail.com',465) as s:
+            s.login(YOUR_GMAIL, APP_PASSWORD); s.send_message(msg)
+        print(f"Blogger OK: {job['title']}")
+        return True
+    except Exception as e:
+        print(f"Blogger FAIL: {e}"); return False
 
-💼 Job Role: {job['title']}
+def get_latest_blog_url():
+    time.sleep(70)
+    try:
+        r=requests.get(f"{BLOG_URL}/feeds/posts/default?alt=rss&max-results=1", timeout=15)
+        soup=BeautifulSoup(r.text,'xml')
+        item=soup.find('item')
+        link=item.find('link').text if item else BLOG_URL
+        print(f"Blog URL Found: {link}")
+        return link
+    except Exception as e:
+        print(f"Blog URL Error: {e}")
+        return BLOG_URL
+
+def post_telegram(job, blog_url):
+    # DYNAMIC TITLE - Off Campus word ledu, original title eh
+    text=f"""💼 {job['title']}
+
 🏢 Company: {job['company']}
-🎓 Qualification: B.E/B.Tech/B.Sc/BCA
-🔹 Batch: 2023/2024/2025
-🆕 Experience: Freshers
-📍 Location: Hyderabad
-🔗 Source: {job['source']}
+💻 Role Type: {job['type'] if job['type'] else 'Full Time'}
+📍 Location: Hyderabad / Remote
 
-🌐 Apply Here:
-{job['link']}
+📄 Job Details & Official Apply:
+{blog_url}
 
-━━━━━━━━━━━━━━━━━━━━
-📢 Join Our Telegram Channel
-https://t.me/HydHireHub
-🌐 Visit Our Blog
-https://hydhirehub.blogspot.com
+🔗 Direct Apply is inside blog post
+
+━━━━━━━━━━━━━━
+@HydHireHub | {BLOG_URL}
 """
     try:
-        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-        resp = requests.post(url, data={"chat_id": CHANNEL_ID, "text": text, "disable_web_page_preview": True}, timeout=15)
-        print(f"Telegram Response: {resp.status_code} - {resp.text[:200]}")
+        url=f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+        resp=requests.post(url, data={"chat_id":CHANNEL_ID, "text":text}, timeout=15)
+        print(f"Telegram Status: {resp.status_code}")
     except Exception as e:
         print(f"Telegram Error: {e}")
 
-def post_blogger(job):
-    try:
-        html = f"""<h2>{job['company']} - {job['title']} - Hyderabad</h2>
-        <p>💼 Role: {job['title']}<br>🏢 Company: {job['company']}<br>🎓 Qualification: Any Graduate<br>📍 Location: Hyderabad</p>
-        <p>Apply: <a href="{job['link']}">{job['link']}</a></p>
-        <p>Join: https://t.me/HydHireHub | Blog: https://hydhirehub.blogspot.com</p>"""
-        msg = MIMEText(html, "html")
-        msg['Subject'] = f"{job['company']} Hiring {job['title']} 2026"
-        msg['From'] = YOUR_GMAIL
-        msg['To'] = BLOGGER_EMAIL
-        with smtplib.SMTP_SSL('smtp.gmail.com',465) as s:
-            s.login(YOUR_GMAIL, APP_PASSWORD)
-            s.send_message(msg)
-        print(f"Blogger Sent OK: {job['title']}")
-    except Exception as e:
-        print(f"Blogger Error: {e}")
-
-jobs = get_jobs()
-print(f"Total Jobs to Post: {len(jobs)}")
-count=0
+jobs=get_fresh_jobs()
+posted=0
 for job in jobs:
     if not is_posted(job['link']):
-        if count>=2: break
-        post_telegram(job)
-        post_blogger(job)
-        save_link(job['link'])
-        count+=1
-        time.sleep(3)
+        if post_blogger(job):
+            b_url=get_latest_blog_url()
+            post_telegram(job, b_url)
+            save_link(job['link'])
+            posted+=1
+            if posted>=1: break
 
-if count==0:
-    print("No new jobs - All already posted. Delete posted.json to repost.")
+if posted==0:
+    print("No fresh jobs - will try next schedule")
