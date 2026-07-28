@@ -7,15 +7,24 @@ jobs:
   bot:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - run: pip install requests beautifulsoup4 lxml
-      - run: python main.py
-      - run: |
+      - uses: actions/checkout@v4
+
+      - name: Install Python packages
+        run: pip install requests beautifulsoup4 lxml
+
+      - name: Run Hyderabad Jobs Bot
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          CHANNEL_ID: ${{ secrets.CHANNEL_ID }}
+          YOUR_GMAIL: ${{ secrets.YOUR_GMAIL }}
+          APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
+          BLOGGER_EMAIL: ${{ secrets.BLOGGER_EMAIL }}
+        run: python main.py
+
+      - name: Save posted jobs
+        run: |
           git config --global user.name "bot"
           git config --global user.email "bot@hyd.com"
           git add posted.json || true
-          git commit -m "update" || true
+          git commit -m "update hyd jobs" || true
           git push || true
