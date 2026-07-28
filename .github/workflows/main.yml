@@ -1,0 +1,38 @@
+name: Job Bot Auto Poster
+
+on:
+  schedule:
+    - cron: '0 */3 * * *'  # Prathi 3 gantalaki auto run
+  workflow_dispatch:  # Nuvvu manual ga run cheyadaniki button
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Code Checkout
+        uses: actions/checkout@v4
+
+      - name: Python Setup
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Requirements
+        run: pip install -r requirements.txt
+
+      - name: Run Job Bot
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          CHANNEL_ID: ${{ secrets.CHANNEL_ID }}
+          YOUR_GMAIL: ${{ secrets.YOUR_GMAIL }}
+          APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
+          BLOGGER_EMAIL: ${{ secrets.BLOGGER_EMAIL }}
+        run: python main.py
+
+      - name: Save Posted Jobs History
+        run: |
+          git config --global user.name "JobBot"
+          git config --global user.email "bot@jobs.com"
+          git add posted.json
+          git commit -m "Update posted jobs list" || echo "No changes"
+          git push
