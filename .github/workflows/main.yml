@@ -1,43 +1,21 @@
-name: Job Bot Auto Poster
-
+name: Hyd Jobs Bot
 on:
   schedule:
-    - cron: '*/30 * * * *'  # Every 30 mins
+    - cron: '0 * * * *'
   workflow_dispatch:
-
-permissions:
-  contents: write
-
 jobs:
-  run-bot:
+  bot:
     runs-on: ubuntu-latest
     steps:
-      - name: Code Checkout
-        uses: actions/checkout@v6
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Python Setup
-        uses: actions/setup-python@v6
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
         with:
           python-version: '3.10'
-
-      - name: Install Requirements
-        run: pip install -r requirements.txt
-
-      - name: Run Job Bot
-        env:
-          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-          CHANNEL_ID: ${{ secrets.CHANNEL_ID }}
-          YOUR_GMAIL: ${{ secrets.YOUR_GMAIL }}
-          APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
-          BLOGGER_EMAIL: ${{ secrets.BLOGGER_EMAIL }}
-        run: python main.py
-
-      - name: Save Posted Jobs History
-        run: |
-          git config --global user.name "JobBot"
-          git config --global user.email "bot@github.com"
-          git add posted.json || echo "No file"
-          git diff --staged --quiet || git commit -m "Update posted jobs"
-          git push || echo "No changes to push"
+      - run: pip install requests beautifulsoup4 lxml
+      - run: python main.py
+      - run: |
+          git config --global user.name "bot"
+          git config --global user.email "bot@hyd.com"
+          git add posted.json || true
+          git commit -m "update" || true
+          git push || true
