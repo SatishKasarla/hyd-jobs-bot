@@ -113,27 +113,30 @@ def post_blogger(job):
 
 def get_blog_url(job):
     uid=job.get('uid','')
-    print(f"[LOG] Searching UID {uid} in RSS - 4 mins wait")
-    for attempt in range(8):
+    print(f"[LOG] Searching UID {uid} - will wait 10 MINS (blogger slow)")
+    for attempt in range(20): # 20*30 = 10 mins - late ayina parvaledu
         time.sleep(30)
         try:
-            r=requests.get(f"{BLOG_URL}/feeds/posts/default?alt=rss&max-results=20", timeout=20)
+            r=requests.get(f"{BLOG_URL}/feeds/posts/default?alt=rss&max-results=30", timeout=20)
             soup=BeautifulSoup(r.text,'xml')
-            for item in soup.find_all('item'):
+            items=soup.find_all('item')
+            for item in items:
                 if uid in item.title.text:
                     link=item.find('link').text
-                    print(f"[LOG] CORRECT URL FOUND: {link}")
+                    print(f"[LOG] CORRECT URL FOUND AFTER {attempt+1} TRIES: {link}")
                     return link
-            print(f"[LOG] Attempt {attempt+1} - UID not yet, latest: {soup.find('item').title.text[:40] if soup.find('item') else 'none'}")
-        except Exception as e: print(f"RSS fail {e}")
-    print("[LOG] Fallback latest URL")
-    try:
-        r=requests.get(f"{BLOG_URL}/feeds/posts/default?alt=rss&max-results=1", timeout=15)
-        soup=BeautifulSoup(r.text,'xml')
-        return soup.find('item').find('link').text
-    except: return BLOG_URL
+            print(f"[LOG] Attempt {attempt+1}/20 - UID {uid} not yet in RSS, latest is: {items[0].title.text[:50] if items else 'none'}")
+        except Exception as e:
+            print(f"RSS fail {e}")
 
-def post_telegram(job, url):
+    # 10 mins tharvata kuda rakapothe OLD LINK EPPUDU IVVADHU - None return
+    print(f"[LOG] UID {uid} NOT FOUND after 10 mins - will NOT post old Lemonio link!")
+    return None
+
+def post_telegram(job, url, direct_link):
+    # url None ayithe direct job link pettali kani Lemonio vaddu
+    final_url = url if url else direct_link
+    note = "" if url else "\n(⚠️ Blog post 10 mins lo live avthundi - direct apply link)"
     text=f"""🔥 {job['company']} Off Campus Drive 2026
 
 💼 Job Role: {job['title']}
@@ -143,8 +146,8 @@ def post_telegram(job, url):
 🆕 Experience: {job['exp']}
 📍 Location: {job['loc']}
 
-🌐 Apply Here:
-{url}
+🌐 Apply Here:{note}
+{final_url}
 
 ━━━━━━━━━━━━━━━━━━━━
 📢 Join Our Telegram Channel
@@ -154,16 +157,17 @@ https://t.me/HydHireHub
 https://hydhirehub.blogspot.com
 """
     requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", data={"chat_id":CHANNEL_ID, "text":text})
-    print(f"[LOG] TELEGRAM DONE: {url}")
+    print(f"[LOG] TELEGRAM POSTED: {final_url} | Old Lemonio link NOT used!")
 
 jobs=fetch_only_hyd()
-if not jobs: print("[LOG] No jobs today - retry after 2 hours"); exit()
+if not jobs: print("[LOG] No jobs today"); exit()
 for job in jobs:
-    if is_posted(job['link']): continue
-    if is_already_in_blog(job['company'], job['title']): save_link(job['link']); continue
+    if is_posted(job['link']): print(f"[LOG] Skip already posted {job['company']}"); continue
+    if is_already_in_blog(job['company'], job['title']): print(f"[LOG] Skip exists in blog {job['company']}"); save_link(job['link']); continue
+    print(f"[LOG] Posting new job: {job['company']} UID will be added")
     if post_blogger(job):
-        url=get_blog_url(job)
-        post_telegram(job, url)
+        url=get_blog_url(job) # 10 mins wait - late ayina parvaledu
+        post_telegram(job, url, job['link'])
         save_link(job['link'])
-        print("[LOG] SUCCESS DONE")
+        print("[LOG] SUCCESS - CORRECT LINK (Not Lemonio)")
         break
