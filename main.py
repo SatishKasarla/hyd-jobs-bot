@@ -32,46 +32,60 @@ def parse_dynamic(desc, title):
 def fetch_only_hyd():
     jobs=[]
     print("[LOG] Fetching real jobs...")
-    # 1. Jobicy - India but we will label Hyd if remote
+    
+    # 1. Jobicy - India
     try:
-        r=requests.get("https://jobicy.com/api/v2/remote-jobs?count=100&geo=india", timeout=20).json()
+        r=requests.get("https://jobicy.com/api/v2/remote-jobs?count=50&geo=india", timeout=20).json()
         all_jobs=r.get('jobs',[])
         print(f"[LOG] Jobicy total India jobs API: {len(all_jobs)}")
-        for j in all_jobs[:30]:
+        for j in all_jobs[:20]:
             title=j.get('jobTitle',''); desc=j.get('jobDescription',''); company=j.get('companyName','')
-            full=(title+" "+desc).lower()
             if any(x in title.lower() for x in ["für","ä","ö","ß"]): continue
-            # LOOSE FILTER - Hyderabad or Remote or India (Hyd people can apply remote)
-            if "hyderabad" in full:
-                loc="Hyderabad"
-            elif "remote" in full:
-                loc="Remote / Hyderabad" # Remote but Hyd people eligible
-            elif "india" in full:
-                loc="Remote (India) - Hyd Eligible"
-            else:
-                continue
+            if "hyderabad" in (title+desc).lower(): loc="Hyderabad"
+            elif "remote" in (title+desc).lower(): loc="Remote / Hyderabad"
+            else: loc="Remote (India)"
             qual,batch,exp,_ = parse_dynamic(desc, title)
             jobs.append({"title":title[:70],"company":company,"link":j['url'],"desc":desc[:800],"qual":qual,"batch":batch,"exp":exp,"loc":loc,"source":"Jobicy"})
-        print(f"[LOG] Jobicy after Hyd filter: {len(jobs)}")
+        print(f"[LOG] Jobicy after filter: {len(jobs)}")
     except Exception as e: print(f"Jobicy fail {e}")
 
-    # 2. Always ensure at least 1 job - If still 0, take ANY India job and mark as Hyd Remote
-    if len(jobs)==0:
-        try:
-            print("[LOG] No Hyd jobs, taking ANY India remote as Hyderabad Remote")
-            r=requests.get("https://jobicy.com/api/v2/remote-jobs?count=30&geo=india", timeout=20).json()
-            for j in r.get('jobs',[])[:5]:
-                title=j.get('jobTitle',''); desc=j.get('jobDescription',''); company=j.get('companyName','')
-                if any(x in title.lower() for x in ["für","ä","ö","ß"]): continue
-                qual,batch,exp,_ = parse_dynamic(desc, title)
-                jobs.append({"title":title[:70],"company":company,"link":j['url'],"desc":desc[:800],"qual":qual,"batch":batch,"exp":exp,"loc":"Remote / Hyderabad","source":"Jobicy-Fallback"})
-        except Exception as e: print(f"Fallback fail {e}")
+    # 2. Remotive - Jobicy 0 ayina ikkada jobs vasthayi - GUARANTEE
+    try:
+        print("[LOG] Trying Remotive API...")
+        r=requests.get("https://remotive.com/api/remote-jobs?limit=50", timeout=20).json()
+        c=0
+        for j in r['jobs']:
+            full=(j.get('title','')+j.get('description','')).lower()
+            if "india" in j.get('candidate_required_location','').lower() or "india" in full or "asia" in full or "remote" in full:
+                if any(x in j['title'].lower() for x in ["für","ä","ö","ß"]): continue
+                qual,batch,exp,_ = parse_dynamic(j['description'], j['title'])
+                loc="Remote / Hyderabad" if "hyderabad" in full else "Remote (India) - Hyd Eligible"
+                jobs.append({"title":j['title'][:70],"company":j['company_name'],"link":j['url'],"desc":j['description'][:800],"qual":qual,"batch":batch,"exp":exp,"loc":loc,"source":"Remotive"})
+                c+=1
+                if c>=5: break
+        print(f"[LOG] Remotive added: {c} | Total now: {len(jobs)}")
+    except Exception as e: print(f"Remotive fail {e}")
+
+    # 3. ArbeitNow - Backup
+    try:
+        print("[LOG] Trying ArbeitNow API...")
+        r=requests.get("https://www.arbeitnow.com/api/job-board-api", timeout=20).json()
+        c=0
+        for j in r['data'][:20]:
+            full=(j.get('title','')+j.get('description','')).lower()
+            if "india" in full or "remote" in full:
+                qual,batch,exp,_ = parse_dynamic(j.get('description',''), j.get('title',''))
+                jobs.append({"title":j.get('title','')[:70],"company":j.get('company_name','Company'),"link":j.get('url',''),"desc":j.get('description','')[:800],"qual":qual,"batch":batch,"exp":exp,"loc":"Remote / Hyderabad","source":"ArbeitNow"})
+                c+=1
+                if c>=3: break
+        print(f"[LOG] ArbeitNow added: {c} | Total now: {len(jobs)}")
+    except Exception as e: print(f"ArbeitNow fail {e}")
 
     random.shuffle(jobs)
     print(f"[LOG] TOTAL FINAL JOBS READY TO POST: {len(jobs)}")
-    for j in jobs[:5]: print(f"[LOG] -> {j['company']} | {j['loc']} | Batch:{j['batch']} | {j['title']}")
+    for j in jobs[:5]: print(f"[LOG] -> {j['source']} | {j['company']} | {j['loc']} | Batch:{j['batch']}")
     return jobs
-
+    
 def is_already_in_blog(company, title):
     try:
         r=requests.get(f"{BLOG_URL}/feeds/posts/default?alt=rss&max-results=30", timeout=15)
