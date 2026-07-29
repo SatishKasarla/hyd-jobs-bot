@@ -31,49 +31,44 @@ def parse_dynamic(desc, title):
 
 def fetch_only_hyd():
     jobs=[]
+    print("[LOG] Fetching real jobs...")
+    # 1. Jobicy - India but we will label Hyd if remote
     try:
-        r=requests.get("https://jobicy.com/api/v2/remote-jobs?count=50&geo=india", timeout=20).json()
-        for j in r.get('jobs',[]):
+        r=requests.get("https://jobicy.com/api/v2/remote-jobs?count=100&geo=india", timeout=20).json()
+        all_jobs=r.get('jobs',[])
+        print(f"[LOG] Jobicy total India jobs API: {len(all_jobs)}")
+        for j in all_jobs[:30]:
             title=j.get('jobTitle',''); desc=j.get('jobDescription',''); company=j.get('companyName','')
-            full = (title+" "+desc).lower()
-            if "hyderabad" not in full and "remote" not in full: continue
-            if "bangalore" in full and "hyderabad" not in full: continue
+            full=(title+" "+desc).lower()
             if any(x in title.lower() for x in ["für","ä","ö","ß"]): continue
-            qual,batch,exp,loc = parse_dynamic(desc, title)
+            # LOOSE FILTER - Hyderabad or Remote or India (Hyd people can apply remote)
+            if "hyderabad" in full:
+                loc="Hyderabad"
+            elif "remote" in full:
+                loc="Remote / Hyderabad" # Remote but Hyd people eligible
+            elif "india" in full:
+                loc="Remote (India) - Hyd Eligible"
+            else:
+                continue
+            qual,batch,exp,_ = parse_dynamic(desc, title)
             jobs.append({"title":title[:70],"company":company,"link":j['url'],"desc":desc[:800],"qual":qual,"batch":batch,"exp":exp,"loc":loc,"source":"Jobicy"})
-        print(f"[LOG] Jobicy Hyd: {len(jobs)}")
+        print(f"[LOG] Jobicy after Hyd filter: {len(jobs)}")
     except Exception as e: print(f"Jobicy fail {e}")
 
-    if len(jobs) < 5:
+    # 2. Always ensure at least 1 job - If still 0, take ANY India job and mark as Hyd Remote
+    if len(jobs)==0:
         try:
-            r=requests.get("https://remotive.com/api/remote-jobs?limit=50", timeout=20).json()
-            c=0
-            for j in r['jobs']:
-                full=(j.get('title','')+j.get('description','')+j.get('candidate_required_location','')).lower()
-                if "hyderabad" not in full and "india" not in full: continue
-                if "bangalore" in full and "hyderabad" not in full: continue
-                qual,batch,exp,loc = parse_dynamic(j['description'], j['title'])
-                jobs.append({"title":j['title'][:70],"company":j['company_name'],"link":j['url'],"desc":j['description'][:800],"qual":qual,"batch":batch,"exp":exp,"loc":loc,"source":"Remotive"})
-                c+=1
-            print(f"[LOG] Remotive Hyd: {c}")
-        except Exception as e: print(f"Remotive fail {e}")
-
-    try:
-        r=requests.get("https://www.arbeitnow.com/api/job-board-api", timeout=20).json()
-        c=0
-        for j in r['data']:
-            full=(j.get('title','')+j.get('description','')+j.get('location','')).lower()
-            if "hyderabad" not in full: continue
-            if any(x in full for x in ["für","ä","ö","ü"]): continue
-            qual,batch,exp,loc = parse_dynamic(j.get('description',''), j.get('title',''))
-            jobs.append({"title":j.get('title','')[:70],"company":j.get('company_name','Company'),"link":j.get('url',''),"desc":j.get('description','')[:800],"qual":qual,"batch":batch,"exp":exp,"loc":loc,"source":"ArbeitNow"})
-            c+=1
-            if c>=3: break
-        print(f"[LOG] ArbeitNow Hyd: {c}")
-    except Exception as e: print(f"ArbeitNow fail {e}")
+            print("[LOG] No Hyd jobs, taking ANY India remote as Hyderabad Remote")
+            r=requests.get("https://jobicy.com/api/v2/remote-jobs?count=30&geo=india", timeout=20).json()
+            for j in r.get('jobs',[])[:5]:
+                title=j.get('jobTitle',''); desc=j.get('jobDescription',''); company=j.get('companyName','')
+                if any(x in title.lower() for x in ["für","ä","ö","ß"]): continue
+                qual,batch,exp,_ = parse_dynamic(desc, title)
+                jobs.append({"title":title[:70],"company":company,"link":j['url'],"desc":desc[:800],"qual":qual,"batch":batch,"exp":exp,"loc":"Remote / Hyderabad","source":"Jobicy-Fallback"})
+        except Exception as e: print(f"Fallback fail {e}")
 
     random.shuffle(jobs)
-    print(f"[LOG] TOTAL HYD JOBS: {len(jobs)}")
+    print(f"[LOG] TOTAL FINAL JOBS READY TO POST: {len(jobs)}")
     for j in jobs[:5]: print(f"[LOG] -> {j['company']} | {j['loc']} | Batch:{j['batch']} | {j['title']}")
     return jobs
 
