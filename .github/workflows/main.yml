@@ -1,14 +1,13 @@
 name: Hyd Jobs Bot
 on:
   schedule:
-    - cron: '0 * * * *'
+    - cron: '0 */3 * * *' # 3 hours ki okasari - block avvadhu
   workflow_dispatch:
 jobs:
   bot:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Run Bot
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
@@ -19,8 +18,7 @@ jobs:
         run: |
           pip install requests beautifulsoup4 lxml
           python main.py
-
-      - name: Save posted jobs
+      - name: Save
         run: |
           git config --global user.name "bot"
           git config --global user.email "bot@hyd.com"
