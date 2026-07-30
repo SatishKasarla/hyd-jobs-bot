@@ -24,60 +24,82 @@ def parse_dynamic(desc, title):
 
 def fetch_hyd_only():
     jobs=[]
-    print("[LOG] Fetching ONLY Hyderabad jobs...")
-    # 1. Jobicy - Filter Hyd only
+    print("[LOG] Fetching ONLY India/Hyderabad jobs - UK/Germany/US block...")
+
+    blacklist = ["uk only", "germany only", "europe only", "eu only", "us only", "usa only", "united kingdom", "deutschland", "berlin", "london", "dach", "european", "us citizen", "uk citizen"]
+    
+    def is_valid_job(title, desc):
+        full = (title + " " + desc).lower()
+        # Blacklist check - UK/Germany/US only jobs block
+        for bad in blacklist:
+            if bad in full and "india" not in full and "hyderabad" not in full:
+                return False, "blocked"
+        # Must have India or Hyderabad or Asia
+        if "hyderabad" in full:
+            return True, "Hyderabad"
+        if "india" in full or "hyderabad eligible" in full or ("remote" in full and "asia" in full):
+            return True, "Remote - Hyderabad Eligible"
+        if "remote" in full and ("india" in full or "hyderabad" in full):
+            return True, "Remote - Hyderabad Eligible"
+        # Pure remote with no location but we allow only if from India API
+        if "india" in full:
+            return True, "Remote - Hyderabad Eligible"
+        return False, "no"
+
+    # 1. Jobicy - India geo so mostly India only - but still filter
     try:
         r=requests.get("https://jobicy.com/api/v2/remote-jobs?count=50&geo=india", timeout=20).json()
         all_jobs=r.get('jobs',[])
-        print(f"[LOG] Jobicy total: {len(all_jobs)}")
+        print(f"[LOG] Jobicy total India: {len(all_jobs)}")
         for j in all_jobs:
             title=j.get('jobTitle',''); desc=j.get('jobDescription',''); company=j.get('companyName','')
-            if "hyderabad" not in (title+desc).lower(): continue # HYD ONLY
-            if any(x in title.lower() for x in ["für","ä","ö","ß"]): continue
+            if any(x in title.lower() for x in ["für","ä","ö","ß","dach"]): continue
+            valid, loc = is_valid_job(title, desc)
+            if not valid: continue
             qual,batch,exp = parse_dynamic(desc, title)
-            jobs.append({"title":title[:70],"company":company,"link":j['url'],"desc":desc,"qual":qual,"batch":batch,"exp":exp,"loc":"Hyderabad","source":"Jobicy"})
-        print(f"[LOG] Jobicy Hyd only: {len(jobs)}")
+            jobs.append({"title":title[:70],"company":company,"link":j['url'],"desc":desc,"qual":qual,"batch":batch,"exp":exp,"loc":loc,"source":"Jobicy"})
+        print(f"[LOG] Jobicy Hyd + Eligible after block: {len(jobs)}")
     except Exception as e: print(f"Jobicy fail {e}")
 
-    # 2. Remotive - Hyd only
+    # 2. Remotive - strict filter
     try:
         r=requests.get("https://remotive.com/api/remote-jobs?limit=100", timeout=20).json()
         c=0
         for j in r['jobs']:
-            if "hyderabad" not in (j.get('title','')+j.get('description','')).lower(): continue
-            if any(x in j['title'].lower() for x in ["für","ä","ö","ß"]): continue
-            qual,batch,exp = parse_dynamic(j['description'], j['title'])
-            jobs.append({"title":j['title'][:70],"company":j['company_name'],"link":j['url'],"desc":j['description'],"qual":qual,"batch":batch,"exp":exp,"loc":"Hyderabad","source":"Remotive"})
+            title=j.get('title',''); desc=j.get('description','')
+            if any(x in title.lower() for x in ["für","ä","ö","ß","dach","german"]): continue
+            if "senior sales manager dach" in title.lower(): continue # Block that UK/Germany job
+            valid, loc = is_valid_job(title, desc)
+            if not valid: continue
+            qual,batch,exp = parse_dynamic(desc, title)
+            jobs.append({"title":title[:70],"company":j['company_name'],"link":j['url'],"desc":desc,"qual":qual,"batch":batch,"exp":exp,"loc":loc,"source":"Remotive"})
             c+=1
-        print(f"[LOG] Remotive Hyd only: {c} | Total: {len(jobs)}")
+            if c>=5: break
+        print(f"[LOG] Remotive Hyd + Eligible after block: {c} | Total: {len(jobs)}")
     except Exception as e: print(f"Remotive fail {e}")
 
-    # 3. ArbeitNow - Hyd only
+    # 3. ArbeitNow - Hyd + India only
     try:
         r=requests.get("https://www.arbeitnow.com/api/job-board-api", timeout=20).json()
         c=0
-        for j in r['data']:
-            if "hyderabad" not in (j.get('title','')+j.get('description','')).lower(): continue
-            qual,batch,exp = parse_dynamic(j.get('description',''), j.get('title',''))
-            jobs.append({"title":j.get('title','')[:70],"company":j.get('company_name','Company'),"link":j.get('url',''),"desc":j.get('description',''),"qual":qual,"batch":batch,"exp":exp,"loc":"Hyderabad","source":"ArbeitNow"})
+        for j in r['data'][:40]:
+            title=j.get('title',''); desc=j.get('description','')
+            full=(title+desc).lower()
+            if "hyderabad" not in full and "india" not in full: continue # ONLY India/Hyd
+            if any(x in full for x in ["uk only", "germany", "berlin", "london"]): continue
+            valid, loc = is_valid_job(title, desc)
+            if not valid: continue
+            qual,batch,exp = parse_dynamic(desc, title)
+            jobs.append({"title":title[:70],"company":j.get('company_name','Company'),"link":j.get('url',''),"desc":desc,"qual":qual,"batch":batch,"exp":exp,"loc":loc,"source":"ArbeitNow"})
             c+=1
-        print(f"[LOG] ArbeitNow Hyd only: {c} | Total: {len(jobs)}")
+            if c>=4: break
+        print(f"[LOG] ArbeitNow after block: {c} | Total: {len(jobs)}")
     except Exception as e: print(f"ArbeitNow fail {e}")
 
     random.shuffle(jobs)
-    print(f"[LOG] TOTAL HYD JOBS READY: {len(jobs)}")
-    for j in jobs[:5]: print(f"[LOG] -> {j['company']} | {j['title']} | {j['loc']} | {j['batch']}")
+    print(f"[LOG] TOTAL FINAL HYD ONLY READY (UK/DE/US BLOCKED): {len(jobs)}")
+    for j in jobs[:5]: print(f"[LOG] -> {j['company']} | {j['loc']} | {j['title'][:40]}")
     return jobs
-
-def is_already_in_blog(company, title):
-    try:
-        r=requests.get(f"{BLOG_URL}/feeds/posts/default?alt=rss&max-results=30", timeout=15)
-        soup=BeautifulSoup(r.text,'xml')
-        for item in soup.find_all('item'):
-            t=item.title.text.lower()
-            if company.split()[0].lower() in t and title.split()[0].lower() in t: return True
-    except: pass
-    return False
 
 def is_posted(link):
     try:
