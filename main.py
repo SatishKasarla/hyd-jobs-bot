@@ -98,71 +98,82 @@ def post_blogger(job):
     now=datetime.now().strftime("%d %B %Y")
     job['uid']=str(uid)
 
-    # Vinkjobs style blog content
-    html=f"""
-<div style="font-family:Arial,sans-serif;line-height:1.8;max-width:800px;margin:auto;">
-<p>{job['company']} is hiring for the position of {job['title']} Profile. Graduates are eligible to apply for this position. This profile is open for the location of Hyderabad. Complete information about the hiring is mentioned below:</p>
+    # HTML tags motham clean - No <div> leak
+    clean_desc = BeautifulSoup(job['desc'], 'html.parser').get_text()
+    clean_desc = re.sub(r'\s+', ' ', clean_desc).strip()[:600] # only 600 chars clean text
 
-<table border="1" cellpadding="10" cellspacing="0" style="width:100%;border-collapse:collapse;margin:20px 0;">
-<tr><td style="background:#f2f2f2;font-weight:bold;">Company Name</td><td><b>{job['company']}</b></td></tr>
-<tr><td style="background:#f2f2f2;font-weight:bold;">Profile Hiring for</td><td><b>{job['title']}</b></td></tr>
-<tr><td style="background:#f2f2f2;font-weight:bold;">Salary</td><td>As Per Market Standards</td></tr>
-<tr><td style="background:#f2f2f2;font-weight:bold;">Work Profile</td><td>Work from Office - Hyderabad</td></tr>
-<tr><td style="background:#f2f2f2;font-weight:bold;">Eligibility</td><td>{job['exp']}</td></tr>
-<tr><td style="background:#f2f2f2;font-weight:bold;">Location</td><td><b>Hyderabad</b></td></tr>
-<tr><td style="background:#f2f2f2;font-weight:bold;">Qualification</td><td>{job['qual']}</td></tr>
-<tr><td style="background:#f2f2f2;font-weight:bold;">Batch</td><td>{job['batch']}</td></tr>
-<tr><td style="background:#f2f2f2;font-weight:bold;">Job ID</td><td>HH{uid}</td></tr>
+    # Off Campus dynamic - Fresher ayithe Off Campus, Experienced ayithe Hiring
+    if "Fresher" in job['exp']:
+        drive_type = "Off Campus Drive"
+        hiring_text = f"{job['company']} Off Campus Drive for {job['title']}"
+    else:
+        drive_type = "Hiring / Recruitment"
+        hiring_text = f"{job['company']} is Hiring for {job['title']}"
+
+    html=f"""
+<div style="font-family:Arial,sans-serif;line-height:1.9;max-width:800px;margin:auto;color:#222;">
+<p>{hiring_text} in Hyderabad. {job['company']} is hiring for the position of {job['title']} Profile. Graduates are eligible to apply for this position. Complete information about the hiring is mentioned below:</p>
+
+<table style="width:100%;border-collapse:collapse;margin:25px 0;border:1px solid #ddd;font-size:15px;">
+<tr style="border-bottom:1px solid #ddd;"><td style="padding:12px 15px;background:#f8f9fa;font-weight:bold;width:35%;border-right:1px solid #ddd;">Company Name</td><td style="padding:12px 15px;"><b>{job['company']}</b></td></tr>
+<tr style="border-bottom:1px solid #ddd;"><td style="padding:12px 15px;background:#f8f9fa;font-weight:bold;border-right:1px solid #ddd;">Profile Hiring for</td><td style="padding:12px 15px;"><b>{job['title']}</b></td></tr>
+<tr style="border-bottom:1px solid #ddd;"><td style="padding:12px 15px;background:#f8f9fa;font-weight:bold;border-right:1px solid #ddd;">Salary</td><td style="padding:12px 15px;">As Per Market Standards</td></tr>
+<tr style="border-bottom:1px solid #ddd;"><td style="padding:12px 15px;background:#f8f9fa;font-weight:bold;border-right:1px solid #ddd;">Work Profile</td><td style="padding:12px 15px;">Work from Office - Hyderabad</td></tr>
+<tr style="border-bottom:1px solid #ddd;"><td style="padding:12px 15px;background:#f8f9fa;font-weight:bold;border-right:1px solid #ddd;">Eligibility</td><td style="padding:12px 15px;">{job['exp']}</td></tr>
+<tr style="border-bottom:1px solid #ddd;"><td style="padding:12px 15px;background:#f8f9fa;font-weight:bold;border-right:1px solid #ddd;">Location</td><td style="padding:12px 15px;"><b>Hyderabad</b></td></tr>
+<tr style="border-bottom:1px solid #ddd;"><td style="padding:12px 15px;background:#f8f9fa;font-weight:bold;border-right:1px solid #ddd;">Qualification</td><td style="padding:12px 15px;">{job['qual']}</td></tr>
+<tr style="border-bottom:1px solid #ddd;"><td style="padding:12px 15px;background:#f8f9fa;font-weight:bold;border-right:1px solid #ddd;">Batch</td><td style="padding:12px 15px;">{job['batch']}</td></tr>
+<tr><td style="padding:12px 15px;background:#f8f9fa;font-weight:bold;border-right:1px solid #ddd;">Job ID</td><td style="padding:12px 15px;">HH{uid}</td></tr>
 </table>
 
-<h3>Eligibility Criteria for {job['company']} Recruitment Drive</h3>
-<p>{job['company']} is a global organization delivering innovative solutions. The work you do will directly impact growth. Join us to start <b>Caring. Connecting. Growing together.</b></p>
+<h3 style="margin-top:30px;color:#0d2a54;">Eligibility Criteria for {job['company']} {drive_type}</h3>
+<p>{job['company']} is a leading company delivering innovative solutions for clients worldwide. Be part of a dynamic team where your work directly impacts growth. Join us to start <b>Caring. Connecting. Growing together.</b></p>
 
 <p><b>Primary Responsibilities:</b></p>
-<ul>
+<ul style="padding-left:20px;">
 <li>Work on {job['title']} role for Hyderabad location</li>
-<li>{job['desc'][:500].replace('<','').replace('>','')}</li>
+<li>{clean_desc}</li>
 <li>Collaborate with cross-functional teams to deliver quality results</li>
 <li>Increase efficiency and effectiveness of overall operations</li>
-<li>Open to work in Hyderabad / Hybrid environment as per guidelines</li>
+<li>Open to work in Hyderabad / Hybrid environment as per company guidelines</li>
 </ul>
 
 <p><b>Required Qualifications:</b></p>
-<ul>
-<li>{job['qual']}</li>
-<li>Overall {job['exp']} - Relevant experience is added advantage</li>
+<ul style="padding-left:20px;">
+<li>{job['qual']} from recognized university</li>
+<li>Eligibility: {job['exp']} - Relevant experience is added advantage</li>
 <li>Good communication and analytical skills</li>
 <li>Ability to work independently and share status updates</li>
 <li>Batch Eligible: {job['batch']}</li>
 </ul>
 
-<h3>How to Apply for {job['company']} Recruitment</h3>
+<h3 style="margin-top:30px;color:#0d2a54;">How to Apply for {job['company']} Recruitment</h3>
 <p>To apply for this job, interested candidates must follow the procedure outlined below:</p>
-<p>Click on the "<b>Apply here</b>" button provided below. You will be redirected to the application page.</p>
-<ol>
+<ol style="padding-left:20px;">
+<li>Click on the "<b>Apply here</b>" button provided below. You will be redirected to the application page.</li>
 <li>Fill in the application form with all the necessary details.</li>
 <li>Submit all relevant documents, if required.</li>
 <li>Make sure that all the details entered are correct.</li>
 <li>Submit the application form & wait for the company's revert.</li>
 </ol>
 
-<div style="text-align:center;margin:30px 0;">
-<a href="{job['link']}" style="background:#0d6efd;color:#fff;padding:16px 45px;text-decoration:none;border-radius:8px;font-weight:bold;font-size:18px;">🌐 Apply Here - {job['company']}</a>
+<div style="text-align:center;margin:35px 0;">
+<a href="{job['link']}" style="background:#0d6efd;color:#fff;padding:16px 45px;text-decoration:none;border-radius:8px;font-weight:bold;font-size:18px;display:inline-block;">🌐 Apply Here - {job['company']}</a>
 </div>
 
-<p><b>IMPORTANT INFORMATION:</b><br>
-No fee Charged from candidates / Never pay any amount for getting a job.<br><br>
+<p style="background:#fff3cd;padding:12px;border-radius:6px;"><b>IMPORTANT INFORMATION:</b><br>
+No fee Charged from candidates / Never pay any amount for getting a job.<br>
 <b>Many employers prefer Applications on First come First Serve Basis. Apply immediately once the job is posted.</b></p>
 
-<p><i>Posted on {now} | Source: {job['source']} | Location: Hyderabad Only</i></p>
+<p style="font-size:13px;color:#666;"><i>Posted on {now} | Source: {job['source']} | {drive_type} | Location: Hyderabad Only</i></p>
 </div>
 """
     msg=MIMEText(html,"html")
-    msg['Subject']=f"{job['company']} Hiring {job['title']} - Hyderabad Jobs {uid}"
+    msg['Subject']=f"{job['company']} {drive_type} {job['title']} - Hyderabad Jobs {uid}"
     msg['From']=YOUR_GMAIL; msg['To']=BLOGGER_EMAIL
     try:
         with smtplib.SMTP_SSL('smtp.gmail.com',465) as s: s.login(YOUR_GMAIL, APP_PASSWORD); s.send_message(msg)
-        print(f"[LOG] BLOGGER SENT UID:{uid} - {job['company']} - Hyd Only - Vinkjobs style")
+        print(f"[LOG] BLOGGER SENT UID:{uid} - {job['company']} - {drive_type} - Clean HTML")
         return True
     except Exception as e: print(f"BLOGGER FAIL {e}"); return False
 
