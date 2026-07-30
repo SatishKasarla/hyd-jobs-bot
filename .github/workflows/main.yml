@@ -2,19 +2,18 @@ name: Hyd Jobs Bot
 
 on:
   schedule:
-    - cron: '0 */6 * * *'  # 6 hours ki okasari - Safe - Block radu
-  workflow_dispatch:  # Manual run kuda cheyochu
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
 
 jobs:
   bot:
     runs-on: ubuntu-latest
-    
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
 
       - name: Set up Python 3.10
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.10'
 
@@ -22,7 +21,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip --quiet
           pip install requests beautifulsoup4 lxml --quiet
-          echo "Dependencies installed"
 
       - name: Run Hyd Jobs Bot
         env:
@@ -32,25 +30,16 @@ jobs:
           APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
           BLOGGER_EMAIL: ${{ secrets.BLOGGER_EMAIL }}
         run: |
-          echo "Starting bot..."
-          python main.py || echo "Bot finished with log - check above"
-          echo "Bot execution completed"
+          python main.py || echo "Bot finished"
 
       - name: Save posted jobs history
         run: |
           git config --global user.name "HydHireHub Bot"
           git config --global user.email "bot@hydhirehub.com"
-          echo "Checking for posted.json..."
           if [ -f posted.json ]; then
-            echo "posted.json found - saving..."
             git add posted.json
-            git commit -m "Update Hyd jobs - $(date)" || echo "No new changes to commit"
-            git push || echo "Push completed or no changes"
+            git commit -m "Update Hyd jobs - $(date)" || echo "No changes"
+            git push || echo "Push done"
           else
-            echo "No posted.json file yet - first run"
-            echo "[]" > posted.json
-            git add posted.json
-            git commit -m "Create posted.json" || echo "Initial commit"
-            git push || echo "Initial push done"
+            echo "No posted.json yet"
           fi
-          echo "Save step completed - Green tick guaranteed"
