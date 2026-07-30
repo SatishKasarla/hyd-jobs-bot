@@ -12,65 +12,61 @@ BLOG_URL = "https://hydhirehub.blogspot.com"
 
 def parse_dynamic(desc, title):
     text = (title + " " + desc).lower()
-    if "mba" in text: qual = "B.E/B.Tech/MBA/MCA"
+    if "mba" in text: qual = "B.E/B.Tech/MBA/MCA/Any Graduate"
     elif "bca" in text or "bsc" in text: qual = "B.E/B.Tech/B.Sc/BCA/MCA"
-    else: qual = "B.E/B.Tech/M.Tech/MCA"
-    years = re.findall(r'202[0-6]', text)
-    batch = "/".join(sorted(list(set(years)))[:4]) if years else "2024/2025/2026"
-    if "0-1" in text or "fresher" in text: exp = "Freshers (0-1 Year)"
-    elif "1-2 year" in text: exp = "0-2 Years"
-    else: exp = "Freshers"
-    if "hyderabad" in text and "remote" in text: loc = "Remote / Hyderabad"
-    elif "hyderabad" in text: loc = "Hyderabad"
-    elif "remote" in text: loc = "Remote / Hyderabad"
-    else: loc = "Remote (India) - Hyd Eligible"
-    return qual, batch, exp, loc
+    else: qual = "B.E/B.Tech/M.Tech/MCA/Any Degree"
+    years = re.findall(r'202[0-3]|202[4-6]', text)
+    batch = "/".join(sorted(list(set(years)))[:5]) if years else "2023/2024/2025/2026"
+    if "2+ years" in text or "3+ years" in text: exp = "Experienced (2+ Years)"
+    elif "0-1" in text or "fresher" in text: exp = "Freshers (0-1 Year)"
+    else: exp = "0-3 Years (Freshers + Experienced)"
+    return qual, batch, exp
 
-def fetch_only_hyd():
+def fetch_hyd_only():
     jobs=[]
-    print("[LOG] Fetching real jobs...")
+    print("[LOG] Fetching ONLY Hyderabad jobs...")
+    # 1. Jobicy - Filter Hyd only
     try:
         r=requests.get("https://jobicy.com/api/v2/remote-jobs?count=50&geo=india", timeout=20).json()
         all_jobs=r.get('jobs',[])
-        print(f"[LOG] Jobicy total API: {len(all_jobs)}")
-        for j in all_jobs[:20]:
+        print(f"[LOG] Jobicy total: {len(all_jobs)}")
+        for j in all_jobs:
             title=j.get('jobTitle',''); desc=j.get('jobDescription',''); company=j.get('companyName','')
+            if "hyderabad" not in (title+desc).lower(): continue # HYD ONLY
             if any(x in title.lower() for x in ["für","ä","ö","ß"]): continue
-            qual,batch,exp,loc = parse_dynamic(desc, title)
-            jobs.append({"title":title[:70],"company":company,"link":j['url'],"desc":desc[:800],"qual":qual,"batch":batch,"exp":exp,"loc":loc,"source":"Jobicy"})
-        print(f"[LOG] Jobicy after filter: {len(jobs)}")
+            qual,batch,exp = parse_dynamic(desc, title)
+            jobs.append({"title":title[:70],"company":company,"link":j['url'],"desc":desc,"qual":qual,"batch":batch,"exp":exp,"loc":"Hyderabad","source":"Jobicy"})
+        print(f"[LOG] Jobicy Hyd only: {len(jobs)}")
     except Exception as e: print(f"Jobicy fail {e}")
 
+    # 2. Remotive - Hyd only
     try:
-        print("[LOG] Trying Remotive...")
-        r=requests.get("https://remotive.com/api/remote-jobs?limit=50", timeout=20).json()
+        r=requests.get("https://remotive.com/api/remote-jobs?limit=100", timeout=20).json()
         c=0
         for j in r['jobs']:
+            if "hyderabad" not in (j.get('title','')+j.get('description','')).lower(): continue
             if any(x in j['title'].lower() for x in ["für","ä","ö","ß"]): continue
-            qual,batch,exp,loc = parse_dynamic(j['description'], j['title'])
-            jobs.append({"title":j['title'][:70],"company":j['company_name'],"link":j['url'],"desc":j['description'][:800],"qual":qual,"batch":batch,"exp":exp,"loc":loc,"source":"Remotive"})
+            qual,batch,exp = parse_dynamic(j['description'], j['title'])
+            jobs.append({"title":j['title'][:70],"company":j['company_name'],"link":j['url'],"desc":j['description'],"qual":qual,"batch":batch,"exp":exp,"loc":"Hyderabad","source":"Remotive"})
             c+=1
-            if c>=5: break
-        print(f"[LOG] Remotive added: {c} | Total: {len(jobs)}")
+        print(f"[LOG] Remotive Hyd only: {c} | Total: {len(jobs)}")
     except Exception as e: print(f"Remotive fail {e}")
 
+    # 3. ArbeitNow - Hyd only
     try:
-        print("[LOG] Trying ArbeitNow...")
         r=requests.get("https://www.arbeitnow.com/api/job-board-api", timeout=20).json()
         c=0
-        for j in r['data'][:20]:
-            full=(j.get('title','')+j.get('description','')).lower()
-            if "india" in full or "remote" in full or "hyderabad" in full:
-                qual,batch,exp,loc = parse_dynamic(j.get('description',''), j.get('title',''))
-                jobs.append({"title":j.get('title','')[:70],"company":j.get('company_name','Company'),"link":j.get('url',''),"desc":j.get('description','')[:800],"qual":qual,"batch":batch,"exp":exp,"loc":loc,"source":"ArbeitNow"})
-                c+=1
-                if c>=3: break
-        print(f"[LOG] ArbeitNow added: {c} | Total: {len(jobs)}")
+        for j in r['data']:
+            if "hyderabad" not in (j.get('title','')+j.get('description','')).lower(): continue
+            qual,batch,exp = parse_dynamic(j.get('description',''), j.get('title',''))
+            jobs.append({"title":j.get('title','')[:70],"company":j.get('company_name','Company'),"link":j.get('url',''),"desc":j.get('description',''),"qual":qual,"batch":batch,"exp":exp,"loc":"Hyderabad","source":"ArbeitNow"})
+            c+=1
+        print(f"[LOG] ArbeitNow Hyd only: {c} | Total: {len(jobs)}")
     except Exception as e: print(f"ArbeitNow fail {e}")
 
     random.shuffle(jobs)
-    print(f"[LOG] TOTAL READY: {len(jobs)}")
-    for j in jobs[:5]: print(f"[LOG] -> {j['source']} | {j['company']} | {j['loc']} | {j['batch']}")
+    print(f"[LOG] TOTAL HYD JOBS READY: {len(jobs)}")
+    for j in jobs[:5]: print(f"[LOG] -> {j['company']} | {j['title']} | {j['loc']} | {j['batch']}")
     return jobs
 
 def is_already_in_blog(company, title):
@@ -99,44 +95,96 @@ def save_link(link):
 
 def post_blogger(job):
     uid=random.randint(10000,99999)
-    now=datetime.now().strftime("%Y%m%d%H%M")
+    now=datetime.now().strftime("%d %B %Y")
     job['uid']=str(uid)
-    html=f"""<div style="font-family:Arial;line-height:1.8;"><h1>{job['company']} Hiring {job['title']} - {job['loc']} {now}</h1><p><b>Hyd Real Job:</b> {job['company']} hiring {job['title']} in {job['loc']}.</p><div style="background:#eef2ff;padding:15px;border-radius:8px;"><p>💼 Job Role: {job['title']}<br>🏢 Company: {job['company']}<br>🎓 Qualification: {job['qual']}<br>🔹 Batch: {job['batch']}<br>🆕 Experience: {job['exp']}<br>📍 Location: {job['loc']}</p></div><p>{job['desc'][:900]}</p><div style="text-align:center;margin:25px;"><a href="{job['link']}" style="background:#0d6efd;color:#fff;padding:16px 45px;text-decoration:none;border-radius:8px;font-weight:bold;">🌐 Apply Here</a></div></div>"""
+
+    # Vinkjobs style blog content
+    html=f"""
+<div style="font-family:Arial,sans-serif;line-height:1.8;max-width:800px;margin:auto;">
+<p>{job['company']} is hiring for the position of {job['title']} Profile. Graduates are eligible to apply for this position. This profile is open for the location of Hyderabad. Complete information about the hiring is mentioned below:</p>
+
+<table border="1" cellpadding="10" cellspacing="0" style="width:100%;border-collapse:collapse;margin:20px 0;">
+<tr><td style="background:#f2f2f2;font-weight:bold;">Company Name</td><td><b>{job['company']}</b></td></tr>
+<tr><td style="background:#f2f2f2;font-weight:bold;">Profile Hiring for</td><td><b>{job['title']}</b></td></tr>
+<tr><td style="background:#f2f2f2;font-weight:bold;">Salary</td><td>As Per Market Standards</td></tr>
+<tr><td style="background:#f2f2f2;font-weight:bold;">Work Profile</td><td>Work from Office - Hyderabad</td></tr>
+<tr><td style="background:#f2f2f2;font-weight:bold;">Eligibility</td><td>{job['exp']}</td></tr>
+<tr><td style="background:#f2f2f2;font-weight:bold;">Location</td><td><b>Hyderabad</b></td></tr>
+<tr><td style="background:#f2f2f2;font-weight:bold;">Qualification</td><td>{job['qual']}</td></tr>
+<tr><td style="background:#f2f2f2;font-weight:bold;">Batch</td><td>{job['batch']}</td></tr>
+<tr><td style="background:#f2f2f2;font-weight:bold;">Job ID</td><td>HH{uid}</td></tr>
+</table>
+
+<h3>Eligibility Criteria for {job['company']} Recruitment Drive</h3>
+<p>{job['company']} is a global organization delivering innovative solutions. The work you do will directly impact growth. Join us to start <b>Caring. Connecting. Growing together.</b></p>
+
+<p><b>Primary Responsibilities:</b></p>
+<ul>
+<li>Work on {job['title']} role for Hyderabad location</li>
+<li>{job['desc'][:500].replace('<','').replace('>','')}</li>
+<li>Collaborate with cross-functional teams to deliver quality results</li>
+<li>Increase efficiency and effectiveness of overall operations</li>
+<li>Open to work in Hyderabad / Hybrid environment as per guidelines</li>
+</ul>
+
+<p><b>Required Qualifications:</b></p>
+<ul>
+<li>{job['qual']}</li>
+<li>Overall {job['exp']} - Relevant experience is added advantage</li>
+<li>Good communication and analytical skills</li>
+<li>Ability to work independently and share status updates</li>
+<li>Batch Eligible: {job['batch']}</li>
+</ul>
+
+<h3>How to Apply for {job['company']} Recruitment</h3>
+<p>To apply for this job, interested candidates must follow the procedure outlined below:</p>
+<p>Click on the "<b>Apply here</b>" button provided below. You will be redirected to the application page.</p>
+<ol>
+<li>Fill in the application form with all the necessary details.</li>
+<li>Submit all relevant documents, if required.</li>
+<li>Make sure that all the details entered are correct.</li>
+<li>Submit the application form & wait for the company's revert.</li>
+</ol>
+
+<div style="text-align:center;margin:30px 0;">
+<a href="{job['link']}" style="background:#0d6efd;color:#fff;padding:16px 45px;text-decoration:none;border-radius:8px;font-weight:bold;font-size:18px;">🌐 Apply Here - {job['company']}</a>
+</div>
+
+<p><b>IMPORTANT INFORMATION:</b><br>
+No fee Charged from candidates / Never pay any amount for getting a job.<br><br>
+<b>Many employers prefer Applications on First come First Serve Basis. Apply immediately once the job is posted.</b></p>
+
+<p><i>Posted on {now} | Source: {job['source']} | Location: Hyderabad Only</i></p>
+</div>
+"""
     msg=MIMEText(html,"html")
-    msg['Subject']=f"{job['company']} {job['title']} {job['loc']} {uid} {now}"
+    msg['Subject']=f"{job['company']} Hiring {job['title']} - Hyderabad Jobs {uid}"
     msg['From']=YOUR_GMAIL; msg['To']=BLOGGER_EMAIL
     try:
         with smtplib.SMTP_SSL('smtp.gmail.com',465) as s: s.login(YOUR_GMAIL, APP_PASSWORD); s.send_message(msg)
-        print(f"[LOG] BLOGGER SENT UID:{uid} - {job['company']}")
+        print(f"[LOG] BLOGGER SENT UID:{uid} - {job['company']} - Hyd Only - Vinkjobs style")
         return True
     except Exception as e: print(f"BLOGGER FAIL {e}"); return False
 
 def get_blog_url(job):
     uid=job.get('uid','')
-    print(f"[LOG] Searching UID {uid} - will wait 10 MINS (blogger slow)")
-    for attempt in range(20): # 20*30 = 10 mins - late ayina parvaledu
+    print(f"[LOG] Searching UID {uid} - wait 10 mins for blog")
+    for attempt in range(20):
         time.sleep(30)
         try:
-            r=requests.get(f"{BLOG_URL}/feeds/posts/default?alt=rss&max-results=30", timeout=20)
+            r=requests.get(f"{BLOG_URL}/feeds/posts/default?alt=rss&max-results=20", timeout=20)
             soup=BeautifulSoup(r.text,'xml')
-            items=soup.find_all('item')
-            for item in items:
+            for item in soup.find_all('item'):
                 if uid in item.title.text:
                     link=item.find('link').text
-                    print(f"[LOG] CORRECT URL FOUND AFTER {attempt+1} TRIES: {link}")
+                    print(f"[LOG] CORRECT URL FOUND: {link}")
                     return link
-            print(f"[LOG] Attempt {attempt+1}/20 - UID {uid} not yet in RSS, latest is: {items[0].title.text[:50] if items else 'none'}")
-        except Exception as e:
-            print(f"RSS fail {e}")
-
-    # 10 mins tharvata kuda rakapothe OLD LINK EPPUDU IVVADHU - None return
-    print(f"[LOG] UID {uid} NOT FOUND after 10 mins - will NOT post old Lemonio link!")
+        except Exception as e: print(f"RSS fail {e}")
+    print("[LOG] UID not found after 10 mins - will use blog homepage search")
     return None
 
-def post_telegram(job, url, direct_link):
-    # url None ayithe direct job link pettali kani Lemonio vaddu
-    final_url = url if url else direct_link
-    note = "" if url else "\n(⚠️ Blog post 10 mins lo live avthundi - direct apply link)"
+def post_telegram(job, url):
+    final_url = url if url else BLOG_URL
     text=f"""🔥 {job['company']} Off Campus Drive 2026
 
 💼 Job Role: {job['title']}
@@ -144,9 +192,9 @@ def post_telegram(job, url, direct_link):
 🎓 Qualification: {job['qual']}
 🔹 Batch: {job['batch']}
 🆕 Experience: {job['exp']}
-📍 Location: {job['loc']}
+📍 Location: Hyderabad
 
-🌐 Apply Here:{note}
+🌐 Apply Here:
 {final_url}
 
 ━━━━━━━━━━━━━━━━━━━━
@@ -157,17 +205,16 @@ https://t.me/HydHireHub
 https://hydhirehub.blogspot.com
 """
     requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", data={"chat_id":CHANNEL_ID, "text":text})
-    print(f"[LOG] TELEGRAM POSTED: {final_url} | Old Lemonio link NOT used!")
+    print(f"[LOG] TELEGRAM DONE: {final_url}")
 
-jobs=fetch_only_hyd()
-if not jobs: print("[LOG] No jobs today"); exit()
+jobs=fetch_hyd_only()
+if not jobs: print("[LOG] No Hyderabad jobs today - will retry after 6 hours"); exit()
 for job in jobs:
-    if is_posted(job['link']): print(f"[LOG] Skip already posted {job['company']}"); continue
-    if is_already_in_blog(job['company'], job['title']): print(f"[LOG] Skip exists in blog {job['company']}"); save_link(job['link']); continue
-    print(f"[LOG] Posting new job: {job['company']} UID will be added")
+    if is_posted(job['link']): continue
+    if is_already_in_blog(job['company'], job['title']): save_link(job['link']); continue
     if post_blogger(job):
-        url=get_blog_url(job) # 10 mins wait - late ayina parvaledu
-        post_telegram(job, url, job['link'])
+        url=get_blog_url(job)
+        post_telegram(job, url)
         save_link(job['link'])
-        print("[LOG] SUCCESS - CORRECT LINK (Not Lemonio)")
+        print("[LOG] SUCCESS - HYD ONLY - VINKJOBS STYLE")
         break
