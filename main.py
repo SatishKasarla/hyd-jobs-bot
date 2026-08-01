@@ -42,24 +42,43 @@ def detect_location_simple(title, desc):
 
 def fetch_only_india_no_key():
     jobs=[]
-    print("[LOG] HydHireHub - ONLY INDIA - NO KEY FREE PORTALS")
-    blacklist=["uk only","germany only","dach only","berlin only","london uk","für","ä","ö","ß","canada only"]
+    print("[LOG] HydHireHub - ONLY INDIA - NO GERMAN - NO (m/f/d)")
+    # German blacklist - (m/f/d) jobs block
+    blacklist=["(m/f/d)","(m/w/d)","(f/m/d)","(w/m/d)","westwing","dach","berlin","munich","germany","deutschland","für","ä","ö","ß","german language","uk only","us only"]
 
-    def is_allowed(title, desc):
-        full=(title+" "+desc).lower()
+    def is_allowed(title, desc, company):
+        full=(title+" "+desc+" "+company).lower()
         for b in blacklist:
-            if b in full: return False
+            if b in full: 
+                print(f"[LOG] BLOCKED GERMAN JOB: {title[:40]} - reason: {b}")
+                return False
+        # Only allow if not german company
+        if "westwing" in full or "m/w" in title.lower() or "m/f" in title.lower():
+            return False
         return True
 
-    # 1. JOBICY - INDIA - FREE NO KEY - MAIN
+    def detect_location_simple(title, desc):
+        full=(title+" "+desc).lower()
+        if "hyderabad" in full: return "Hyderabad"
+        if "bangalore" in full or "bengaluru" in full: return "Bangalore"
+        if "chennai" in full: return "Chennai"
+        if "pune" in full: return "Pune"
+        if "vijayawada" in full: return "Vijayawada"
+        if "vizag" in full or "visakhapatnam" in full: return "Vizag"
+        if "mumbai" in full: return "Mumbai"
+        if "delhi" in full or "noida" in full: return "Delhi NCR"
+        return "Pan India (WFH/Remote)"
+
+    # 1. JOBICY INDIA ONLY - MAIN - FREE - BEST
     try:
-        print("[LOG] Fetching Jobicy India...")
+        print("[LOG] Fetching Jobicy India Geo...")
         r=requests.get("https://jobicy.com/api/v2/remote-jobs?count=50&geo=india", timeout=30).json()
         c=0
-        for j in r.get('jobs',[])[:40]:
+        for j in r.get('jobs',[])[:50]:
             title=j.get('jobTitle',''); desc=j.get('jobDescription',''); company=j.get('companyName',''); link=j.get('url','')
             if not title or not link: continue
-            if not is_allowed(title, desc): continue
+            if not is_allowed(title, desc, company): continue
+            if "m/f" in title.lower() or "m/w" in title.lower(): continue
             qual,batch,exp = parse_dynamic_full(desc,title)
             jt_full,jt_short,exp_text = detect_job_type(title,desc)
             loc=detect_location_simple(title,desc)
@@ -68,66 +87,36 @@ def fetch_only_india_no_key():
         print(f"[LOG] Jobicy India Added: {c} | Total: {len(jobs)}")
     except Exception as e: print(f"[LOG] Jobicy fail {e}")
 
-    # 2. REMOTIVE - REMOTE AS PAN INDIA - FREE NO KEY
+    # 2. REMOTIVE - FILTER INDIA ONLY - Remove US/UK
     try:
-        print("[LOG] Fetching Remotive Remote as Pan India...")
-        r=requests.get("https://remotive.com/api/remote-jobs?limit=50", timeout=30).json()
+        print("[LOG] Fetching Remotive - India Filter...")
+        r=requests.get("https://remotive.com/api/remote-jobs?limit=60&search=india", timeout=30).json()
         c=0
         for j in r.get('jobs',[])[:40]:
-            title=j.get('title',''); desc=j.get('description','')
+            title=j.get('title',''); desc=j.get('description',''); company=j.get('company_name','')
             if not title: continue
-            if not is_allowed(title, desc): continue
+            if not is_allowed(title, desc, company): continue
+            if "m/f" in title.lower() or "m/w" in title.lower(): continue
+            # Remotive lo India word unna jobs only - US SpaceX block
+            if "india" not in (title+" "+desc).lower() and "remote" not in (title+" "+desc).lower():
+                continue
+            if any(x in (title+" "+desc).lower() for x in ["spacex","uber","usa only"]): 
+                continue
             qual,batch,exp = parse_dynamic_full(desc,title)
             jt_full,jt_short,exp_text = detect_job_type(title,desc)
             loc=detect_location_simple(title,desc)
-            jobs.append({"title":title[:90],"company":j.get('company_name','Company'),"link":j.get('url',''),"desc":desc,"qual":qual,"batch":batch,"exp":exp_text,"loc":loc,"job_type_full":jt_full,"job_type_short":jt_short,"source":"Remotive India"})
+            jobs.append({"title":title[:90],"company":company or "Company","link":j.get('url',''),"desc":desc,"qual":qual,"batch":batch,"exp":exp_text,"loc":loc,"job_type_full":jt_full,"job_type_short":jt_short,"source":"Remotive India"})
             c+=1
             if c>=10: break
-        print(f"[LOG] Remotive Added: {c} | Total: {len(jobs)}")
+        print(f"[LOG] Remotive India Added: {c} | Total: {len(jobs)}")
     except Exception as e: print(f"[LOG] Remotive fail {e}")
 
-    # 3. ARBEITNOW - FREE NO KEY - INDIA SEARCH
-    try:
-        print("[LOG] Fetching ArbeitNow India...")
-        r=requests.get("https://www.arbeitnow.com/api/job-board-api?search=remote", timeout=25).json()
-        c=0
-        for j in r.get('data',[])[:40]:
-            title=j.get('title',''); desc=j.get('description','')
-            if not title: continue
-            if not is_allowed(title, desc): continue
-            qual,batch,exp = parse_dynamic_full(desc,title)
-            jt_full,jt_short,exp_text = detect_job_type(title,desc)
-            loc=detect_location_simple(title,desc)
-            jobs.append({"title":title[:90],"company":j.get('company_name','Company'),"link":j.get('url',''),"desc":desc,"qual":qual,"batch":batch,"exp":exp_text,"loc":loc,"job_type_full":jt_full,"job_type_short":jt_short,"source":"ArbeitNow"})
-            c+=1
-            if c>=8: break
-        print(f"[LOG] ArbeitNow Added: {c} | Total: {len(jobs)}")
-    except Exception as e: print(f"[LOG] ArbeitNow fail {e}")
-
-    # 4. THEMUSE - FREE NO KEY - REMOTE = INDIA
-    try:
-        print("[LOG] Fetching TheMuse Remote...")
-        r=requests.get("https://www.themuse.com/api/public/jobs?category=Software%20Engineering&page=0", timeout=20).json()
-        c=0
-        for j in r.get('results',[])[:20]:
-            title=j.get('name',''); company=j.get('company',{}).get('name','Company'); link=j.get('refs',{}).get('landing_page',''); desc=j.get('contents','')
-            if not title or not link: continue
-            if not is_allowed(title, desc): continue
-            qual,batch,exp = parse_dynamic_full(desc,title)
-            jt_full,jt_short,exp_text = detect_job_type(title,desc)
-            loc="Pan India (Remote)"
-            jobs.append({"title":title[:90],"company":company,"link":link,"desc":desc,"qual":qual,"batch":batch,"exp":exp_text,"loc":loc,"job_type_full":jt_full,"job_type_short":jt_short,"source":"TheMuse India"})
-            c+=1
-            if c>=5: break
-        print(f"[LOG] TheMuse Added: {c} | Total: {len(jobs)}")
-    except Exception as e: print(f"[LOG] TheMuse fail {e}")
-
     random.shuffle(jobs)
-    print(f"[LOG] FINAL ONLY INDIA NO KEY READY: {len(jobs)}")
+    print(f"[LOG] FINAL ONLY INDIA NO GERMAN: {len(jobs)}")
     for i,j in enumerate(jobs[:7]):
-        print(f"[LOG] {i+1} [{j['source']}] {j['company']} | {j['loc']} | {j['job_type_full']} | {j['title'][:40]}")
+        print(f"[LOG] {i+1} [{j['source']}] {j['company']} | {j['loc']} | {j['title'][:50]}")
     return jobs
-
+    
 def is_posted(link):
     try:
         if not os.path.exists('posted.json'): return False
@@ -148,8 +137,15 @@ def post_blogger_freshersvoice(job):
     try:
         uid=random.randint(10000,99999)
         job['uid']=str(uid)
-        clean=BeautifulSoup(job['desc'],'html.parser').get_text()
-        clean=re.sub(r'\s+',' ',clean).strip()[:800]
+                soup_desc = BeautifulSoup(job['desc'],'html.parser').get_text()
+        # Remove (m/f/d) etc from description
+        soup_desc = re.sub(r'\(m/f/d\)|\(m/w/d\)|\(f/m/d\)|\(w/m/d\)', '', soup_desc, flags=re.IGNORECASE)
+        soup_desc = re.sub(r'\s+',' ',soup_desc).strip()
+        # Make neat points
+        sentences = soup_desc.split('. ')[:5]
+        clean = '. '.join(sentences)[:700]
+        if len(clean) < 100:
+            clean = f"{job['company']} is hiring for {job['title']} role. Candidate should have good communication skills and relevant qualification {job['qual']}. This is a great opportunity for {job['batch']} batch."
         now=datetime.now().strftime("%d %B %Y")
         html=f"""
 <div style="font-family:Arial;line-height:1.9;max-width:820px;margin:auto;">
