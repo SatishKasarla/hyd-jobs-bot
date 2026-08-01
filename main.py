@@ -15,7 +15,7 @@ def detect_job_type(title, desc):
     if "walk" in text and "in" in text:
         return "Walk-in Drive", "Walk-in", "Walk-in Interview"
     elif "intern" in text:
-        return "Internship", "Internship"
+        return "Internship", "Internship", "Internship"
     elif "off campus" in text:
         return "Off Campus Drive", "Off Campus", "Freshers Off Campus"
     elif "fresher" in text:
