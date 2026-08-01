@@ -59,18 +59,24 @@ def detect_location_simple(title, desc):
 
 def fetch_only_india_no_key():
     jobs = []
-    print("[LOG] HydHireHub - ONLY INDIA - FINAL NO FAKE")
-    blacklist = ["(m/f/d)", "(f/m/d)", "(m/w/d)", "(w/m/d)", "m/f/d", "m/w/d", "dach", "berlin", "munich", "germany", "deutschland"]
+    print("[LOG] HydHireHub - FINAL - ONLY INDIA NO UK/US/GERMAN")
 
     def is_allowed(title, desc, company):
         full = (title + " " + desc + " " + company).lower()
-        for b in blacklist:
+        title_low = title.lower()
+        block_list = [" - uk", " uk ", " uk|", "| uk", "(uk)", "- uk -", " uk -", "united kingdom", "london", " - usa", " usa ", "| usa", "united states", " - canada", " - germany", " - de ", "berlin", "munich", "deutschland", "germany only", "uk only", "us only", "(m/f/d)", "(f/m/d)", "(m/w/d)", "(w/m/d)", "m/f/d", "m/w/d", "dach", "für", "ä", "ö", "ß"]
+        for b in block_list:
             if b in full:
-                print(f"[LOG] BLOCKED FAKE/GERMAN: {title[:50]} -> {b}")
+                print(f"[LOG] BLOCKED UK/US/GERMAN: {title[:55]} -> {b}")
                 return False
+        if title_low.strip().endswith("uk") or title_low.strip().endswith("usa"):
+            print(f"[LOG] BLOCKED UK/USA SUFFIX: {title[:55]}")
+            return False
         if "westwing" in full:
             return False
         if "spacex" in full:
+            return False
+        if "worldwide clinical trials" in full and "uk" in full:
             return False
         return True
 
@@ -90,11 +96,11 @@ def fetch_only_india_no_key():
             qual, batch, exp = parse_dynamic_full(desc, title)
             jt_full, jt_short, exp_text = detect_job_type(title, desc)
             loc = detect_location_simple(title, desc)
-            jobs.append({"title": title[:90], "company": company or "Company", "link": link, "desc": desc, "qual": qual, "batch": batch, "exp": exp_text, "loc": loc, "job_type_full": jt_full, "job_type_short": jt_short, "source": "Jobicy"})
+            jobs.append({"title": title[:90], "company": company or "Company", "link": link, "desc": desc, "qual": qual, "batch": batch, "exp": exp_text, "loc": loc, "job_type_full": jt_full, "job_type_short": jt_short, "source": "Jobicy India"})
             c += 1
         print(f"[LOG] Jobicy India Geo Added: {c}")
         if c == 0:
-            print("[LOG] Jobicy Geo 0 - Fallback all remote...")
+            print("[LOG] Jobicy Geo 0 - Fallback...")
             r2 = requests.get("https://jobicy.com/api/v2/remote-jobs?count=50", timeout=30).json()
             for j in r2.get('jobs', [])[:30]:
                 title = j.get('jobTitle', '')
@@ -139,33 +145,10 @@ def fetch_only_india_no_key():
     except Exception as e:
         print(f"[LOG] Remotive fail {e}")
 
-    try:
-        print("[LOG] Fetching ArbeitNow...")
-        r = requests.get("https://www.arbeitnow.com/api/job-board-api?search=india", timeout=25).json()
-        c = 0
-        for j in r.get('data', [])[:30]:
-            title = j.get('title', '')
-            desc = j.get('description', '')
-            company = j.get('company_name', '')
-            if not title:
-                continue
-            if not is_allowed(title, desc, company):
-                continue
-            qual, batch, exp = parse_dynamic_full(desc, title)
-            jt_full, jt_short, exp_text = detect_job_type(title, desc)
-            loc = detect_location_simple(title, desc)
-            jobs.append({"title": title[:90], "company": company or "Company", "link": j.get('url', ''), "desc": desc, "qual": qual, "batch": batch, "exp": exp_text, "loc": loc, "job_type_full": jt_full, "job_type_short": jt_short, "source": "ArbeitNow"})
-            c += 1
-            if c >= 6:
-                break
-        print(f"[LOG] ArbeitNow Added: {c}")
-    except Exception as e:
-        print(f"[LOG] ArbeitNow fail {e}")
-
     random.shuffle(jobs)
-    print(f"[LOG] FINAL READY: {len(jobs)} - No Fake Links")
+    print(f"[LOG] FINAL READY: {len(jobs)} - No UK/US/German - No Fake")
     for i, j in enumerate(jobs[:5]):
-        print(f"[LOG] {i+1} {j['company']} | {j['loc']} | {j['job_type_full']} | {j['title'][:40]}")
+        print(f"[LOG] {i+1} {j['company']} | {j['loc']} | {j['job_type_full']} | {j['title'][:45]}")
     return jobs
 
 def is_posted(link):
@@ -202,7 +185,7 @@ def post_blogger_freshersvoice(job):
         html = f"""
 <div style="font-family:Arial;line-height:1.9;max-width:800px;margin:auto;">
 <h2 style="color:#0f172a;">{job['company']} {job['job_type_full']} 2026 | {job['title']}</h2>
-<p><b>HydHireHub</b> - {job['company']} is conducting <b>{job['job_type_full']}</b> for <b>{job['title']}</b> in <b>{job['loc']}</b>. Eligible candidates can apply online.</p>
+<p><b>HydHireHub</b> - {job['company']} is conducting <b>{job['job_type_full']}</b> for <b>{job['title']}</b> in <b>{job['loc']}</b>. Eligible candidates can apply online. Check details below like FreshersVoice.</p>
 <table style="width:100%;border-collapse:collapse;margin:20px 0;border:1px solid #e2e8f0;font-size:15px;">
 <tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:12px;background:#f8fafc;font-weight:bold;width:35%;border-right:1px solid #e2e8f0;">Company Name</td><td style="padding:12px;"><b>{job['company']}</b></td></tr>
 <tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:12px;background:#f8fafc;font-weight:bold;border-right:1px solid #e2e8f0;">Job Role</td><td style="padding:12px;">{job['title']}</td></tr>
@@ -215,12 +198,12 @@ def post_blogger_freshersvoice(job):
 <h3 style="color:#1e293b;border-left:4px solid #0d6efd;padding-left:10px;">Job Description</h3>
 <p>{neat_desc}.</p>
 <h3 style="color:#1e293b;border-left:4px solid #0d6efd;padding-left:10px;">Eligibility Criteria</h3>
-<ul style="line-height:1.9;"><li><b>Qualification:</b> {job['qual']}</li><li><b>Batch:</b> {job['batch']}</li><li><b>Location:</b> {job['loc']}</li><li><b>Experience:</b> {job['exp']}</li></ul>
-<h3 style="color:#1e293b;border-left:4px solid #0d6efd;padding-left:10px;">How to Apply</h3>
-<ol style="line-height:1.9;"><li>Click Apply Here</li><li>Go to official {job['company']} page</li><li>Fill form and submit</li></ol>
-<div style="text-align:center;margin:30px 0;"><a href="{job['link']}" style="background:#0d6efd;color:#fff;padding:14px 40px;text-decoration:none;border-radius:6px;font-weight:bold;display:inline-block;">Apply Here</a></div>
-<p style="background:#fff7ed;padding:12px;border-left:4px solid #f97316;font-size:14px;"><b>Note:</b> No fee - Only India jobs - Direct link - {job['loc']}.</p>
-<p style="font-size:12px;color:#94a3b8;">Posted on {now} by HydHireHub | {job['loc']} Jobs | {job['job_type_full']}</p>
+<ul style="line-height:1.9;"><li><b>Qualification:</b> {job['qual']}</li><li><b>Batch:</b> {job['batch']} can apply</li><li><b>Location:</b> {job['loc']} - Hyd, Chennai, Bangalore, Pune, Mumbai, Vizag, Vijayawada</li><li><b>Experience:</b> {job['exp']}</li></ul>
+<h3 style="color:#1e293b;border-left:4px solid #0d6efd;padding-left:10px;">How to Apply for {job['company']} {job['loc']}?</h3>
+<ol style="line-height:1.9;"><li>Click Apply Now button below</li><li>You will be redirected to {job['company']} official career page</li><li>Fill details and submit application</li></ol>
+<div style="text-align:center;margin:30px 0;"><a href="{job['link']}" style="background:#0d6efd;color:#fff;padding:14px 40px;text-decoration:none;border-radius:6px;font-weight:bold;display:inline-block;">Apply Now</a></div>
+<p style="background:#fff7ed;padding:12px;border-left:4px solid #f97316;font-size:14px;"><b>Note:</b> HydHireHub does not charge any fee. Direct official link only. Only India jobs - {job['loc']}.</p>
+<p style="font-size:12px;color:#94a3b8;">Posted on {now} by HydHireHub | {job['loc']} Jobs | {job['job_type_full']} | FreshersVoice Style</p>
 </div>
 """
         msg = MIMEText(html, "html")
@@ -270,15 +253,15 @@ Apply now: {url}
 #HydHireHub #FresherJobs #{tag_loc}Jobs
 """
         requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", data={"chat_id": CHANNEL_ID, "text": text}, timeout=15)
-        print(f"[LOG] TELEGRAM DONE - {job['loc']}")
+        print(f"[LOG] TELEGRAM DONE - {job['loc']} - RealityDefine Style")
     except Exception as e:
         print(f"[LOG] Telegram fail {e}")
 
 try:
-    print("[LOG] ===== HydHireHub FINAL Started =====")
+    print("[LOG] ===== HydHireHub FINAL - NO UK/US/GERMAN - STARTED =====")
     jobs = fetch_only_india_no_key()
     if not jobs:
-        print("[LOG] No jobs today")
+        print("[LOG] No jobs today - will retry next run")
         exit(0)
     for job in jobs:
         if is_posted(job['link']):
@@ -287,9 +270,9 @@ try:
             url = get_blog_url(job)
             post_telegram(job, url)
             save_link(job['link'])
-            print(f"[LOG] SUCCESS - {job['company']} - {job['loc']}")
+            print(f"[LOG] SUCCESS - {job['company']} - {job['loc']} - No Fake")
             break
-    print("[LOG] ===== Finished OK =====")
+    print("[LOG] ===== Finished OK - No UK/US/German - No Fake Links =====")
     exit(0)
 except Exception as e:
     print(f"[LOG] MAIN FAIL {e}")
