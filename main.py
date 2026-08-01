@@ -15,13 +15,13 @@ def detect_job_type(title, desc):
     if "walk" in text and "in" in text:
         return "Walk-in Drive", "Walk-in", "Walk-in Interview"
     elif "intern" in text:
-        return "Internship", "Internship"
+        return "Internship", "Internship", "Internship"
     elif "off campus" in text:
         return "Off Campus Drive", "Off Campus", "Freshers Off Campus"
     elif "fresher" in text:
         return "Off Campus Drive", "Off Campus", "Freshers"
     else:
-        return "Recruitment", "Fresher + Experienced", "0-3 Years Hiring"
+        return "Recruitment", "Fresher + Experienced", "0-3 Years"
 
 def parse_dynamic_full(desc, title):
     text = (title + " " + desc).lower()
@@ -60,7 +60,7 @@ def detect_location_simple(title, desc):
 def fetch_only_india_no_key():
     jobs = []
     print("[LOG] HydHireHub - ONLY INDIA - FINAL NO FAKE")
-    blacklist = ["(m/f/d)", "(f/m/d)", "(m/w/d)", "(w/m/d)", "m/f/d", "m/w/d", "dach", "berlin", "munich", "germany", "deutschland", "für"]
+    blacklist = ["(m/f/d)", "(f/m/d)", "(m/w/d)", "(w/m/d)", "m/f/d", "m/w/d", "dach", "berlin", "munich", "germany", "deutschland"]
 
     def is_allowed(title, desc, company):
         full = (title + " " + desc + " " + company).lower()
@@ -70,11 +70,11 @@ def fetch_only_india_no_key():
                 return False
         if "westwing" in full:
             return False
-        if "spacex" in full or "starlink" in full:
+        if "spacex" in full:
             return False
         return True
 
-        try:
+    try:
         print("[LOG] Fetching Jobicy India...")
         r = requests.get("https://jobicy.com/api/v2/remote-jobs?count=50&geo=india", timeout=30).json()
         c = 0
@@ -93,9 +93,8 @@ def fetch_only_india_no_key():
             jobs.append({"title": title[:90], "company": company or "Company", "link": link, "desc": desc, "qual": qual, "batch": batch, "exp": exp_text, "loc": loc, "job_type_full": jt_full, "job_type_short": jt_short, "source": "Jobicy"})
             c += 1
         print(f"[LOG] Jobicy India Geo Added: {c}")
-        # Fallback if 0 - Fetch all remote and treat as Pan India
         if c == 0:
-            print("[LOG] Jobicy India Geo 0 - Trying fallback all remote...")
+            print("[LOG] Jobicy Geo 0 - Fallback all remote...")
             r2 = requests.get("https://jobicy.com/api/v2/remote-jobs?count=50", timeout=30).json()
             for j in r2.get('jobs', [])[:30]:
                 title = j.get('jobTitle', '')
@@ -106,8 +105,6 @@ def fetch_only_india_no_key():
                     continue
                 if not is_allowed(title, desc, company):
                     continue
-                if "m/f/d" in title.lower() or "m/w/d" in title.lower():
-                    continue
                 qual, batch, exp = parse_dynamic_full(desc, title)
                 jt_full, jt_short, exp_text = detect_job_type(title, desc)
                 loc = detect_location_simple(title, desc)
@@ -116,7 +113,6 @@ def fetch_only_india_no_key():
                 if c >= 10:
                     break
             print(f"[LOG] Jobicy Fallback Added: {c}")
-        print(f"[LOG] Jobicy Total Added: {c}")
     except Exception as e:
         print(f"[LOG] Jobicy fail {e}")
 
@@ -144,7 +140,7 @@ def fetch_only_india_no_key():
         print(f"[LOG] Remotive fail {e}")
 
     try:
-        print("[LOG] Fetching ArbeitNow Remote...")
+        print("[LOG] Fetching ArbeitNow...")
         r = requests.get("https://www.arbeitnow.com/api/job-board-api?search=india", timeout=25).json()
         c = 0
         for j in r.get('data', [])[:30]:
@@ -222,7 +218,7 @@ def post_blogger_freshersvoice(job):
 <ul style="line-height:1.9;"><li><b>Qualification:</b> {job['qual']}</li><li><b>Batch:</b> {job['batch']}</li><li><b>Location:</b> {job['loc']}</li><li><b>Experience:</b> {job['exp']}</li></ul>
 <h3 style="color:#1e293b;border-left:4px solid #0d6efd;padding-left:10px;">How to Apply</h3>
 <ol style="line-height:1.9;"><li>Click Apply Here</li><li>Go to official {job['company']} page</li><li>Fill form and submit</li></ol>
-<div style="text-align:center;margin:30px 0;"><a href="{job['link']}" style="background:#0d6efd;color:#fff;padding:14px 40px;text-decoration:none;border-radius:6px;font-weight:bold;display:inline-block;">Apply Now - {job['company']}</a></div>
+<div style="text-align:center;margin:30px 0;"><a href="{job['link']}" style="background:#0d6efd;color:#fff;padding:14px 40px;text-decoration:none;border-radius:6px;font-weight:bold;display:inline-block;">Apply Here</a></div>
 <p style="background:#fff7ed;padding:12px;border-left:4px solid #f97316;font-size:14px;"><b>Note:</b> No fee - Only India jobs - Direct link - {job['loc']}.</p>
 <p style="font-size:12px;color:#94a3b8;">Posted on {now} by HydHireHub | {job['loc']} Jobs | {job['job_type_full']}</p>
 </div>
@@ -271,15 +267,15 @@ Apply now: {url}
 
 {url}
 
-#HydHireHub #FresherJobs #{tag_loc}Jobs #{job['job_type_full'].replace(' ', '').replace('-', '')}
+#HydHireHub #FresherJobs #{tag_loc}Jobs
 """
         requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", data={"chat_id": CHANNEL_ID, "text": text}, timeout=15)
-        print(f"[LOG] TELEGRAM DONE - {job['loc']} - RealityDefine Style")
+        print(f"[LOG] TELEGRAM DONE - {job['loc']}")
     except Exception as e:
         print(f"[LOG] Telegram fail {e}")
 
 try:
-    print("[LOG] ===== HydHireHub FINAL Started - No Fake Links =====")
+    print("[LOG] ===== HydHireHub FINAL Started =====")
     jobs = fetch_only_india_no_key()
     if not jobs:
         print("[LOG] No jobs today")
@@ -293,7 +289,7 @@ try:
             save_link(job['link'])
             print(f"[LOG] SUCCESS - {job['company']} - {job['loc']}")
             break
-    print("[LOG] ===== Finished OK - No (m/f/d) - No Fake =====")
+    print("[LOG] ===== Finished OK =====")
     exit(0)
 except Exception as e:
     print(f"[LOG] MAIN FAIL {e}")
