@@ -208,7 +208,7 @@ def post_blogger_freshersvoice(job):
         now = datetime.now().strftime("%d %B %Y")
         html = f"""
 <div style="font-family:Arial;line-height:1.9;max-width:820px;margin:auto;">
-<p><b>HydHireHub</b> - {job['company']} {job['job_type_full']} 2026 for <b>{job['title']}</b> in {job['loc']}. {job['company']} hiring {job['job_type_short']} candidates from all over India - Hyd, Chennai, Bangalore, Pune, Vijayawada, Vizag.</p>
+<p>{job['company']} {job['job_type_full']} 2026 for <b>{job['title']}</b> in {job['loc']}. {job['company']} hiring {job['job_type_short']} candidates from all over India - Hyd, Chennai, Bangalore, Pune, Vijayawada, Vizag.</p>
 <table style="width:100%;border-collapse:collapse;margin:25px 0;border:1px solid #ddd;">
 <tr><td style="padding:12px;background:#f1f5f9;font-weight:bold;width:32%;">Company Name</td><td style="padding:12px;"><b>{job['company']}</b></td></tr>
 <tr><td style="padding:12px;background:#f1f5f9;font-weight:bold;">Job Type</td><td style="padding:12px;"><b>{job['job_type_full']}</b></td></tr>
@@ -224,7 +224,7 @@ def post_blogger_freshersvoice(job):
 <ul><li>Qualification: {job['qual']}</li><li>Batch: {job['batch']} - {job['batch']} Eligible</li><li>Location: {job['loc']} - Hyd, Chennai, Bangalore, Pune, Vijayawada, Vizag, Pan India</li><li>Experience: {job['exp']}</li></ul>
 <h3 style="color:#0f172a;border-left:4px solid #0d6efd;padding-left:12px;">How to Apply</h3>
 <ol><li>Click Apply Here button</li><li>Fill details on official page</li><li>Submit resume</li></ol>
-<div style="text-align:center;margin:30px 0;"><a href="{job['link']}" style="background:#0d6efd;color:#fff;padding:16px 50px;text-decoration:none;border-radius:8px;font-weight:bold;">🌐 Apply Here - HydHireHub</a></div>
+<div style="text-align:center;margin:30px 0;"><a href="{job['link']}" style="background:#0d6efd;color:#fff;padding:16px 50px;text-decoration:none;border-radius:8px;font-weight:bold;">🌐 Apply Here</a></div>
 <div style="background:#fef9c3;padding:14px;border-radius:8px;border-left:4px solid #eab308;"><b>Note:</b> No fee - {job['job_type_full']} - {job['loc']} - Only India - Direct company link.</div>
 <p style="font-size:13px;color:#64748b;">Posted on {now} | HydHireHub | {job['job_type_full']} | {job['loc']} | Source: {job['source']}</p>
 </div>
@@ -269,6 +269,7 @@ def post_telegram(job, url):
 {url}
 
 https://t.me/HydHireHub
+
 Only India - Hyd | Chennai | Bangalore | Pune | Vizag
 """
         requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", data={"chat_id": CHANNEL_ID, "text": text}, timeout=15)
