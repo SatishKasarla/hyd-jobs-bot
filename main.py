@@ -37,7 +37,7 @@ def parse_dynamic_full(desc, title):
 
 def detect_location_simple(title, desc):
     full = (title + " " + desc).lower()
-    if "hyderabad" in full:
+    if "hyderabad" in full or "hyd" in full:
         return "Hyderabad"
     if "bangalore" in full or "bengaluru" in full:
         return "Bangalore"
@@ -59,14 +59,14 @@ def detect_location_simple(title, desc):
 
 def fetch_only_india_no_key():
     jobs = []
-    print("[LOG] HydHireHub - FINAL - ONLY INDIA NO UK/US/GERMAN")
+    print("[LOG] HydHireHub FINAL - ONLY INDIA - HYD PRIORITY - ZERO FAKE")
 
     def is_allowed(title, desc, company):
         full = (title + " " + desc + " " + company).lower()
-        block_list = [" - uk", " uk ", "| uk", "(uk)", "- uk -", " uk -", "united kingdom", "london", " - usa", " usa ", "| usa", "united states", " - canada", "berlin", "munich", "deutschland", "germany only", "uk only", "us only", "(m/f/d)", "(m/w/d)", "m/f/d", "m/w/d"]
-        for b in block_list:
+        block = [" - uk", " uk ", "| uk", "(uk)", " - uk -", "united kingdom", "london", " - usa", " usa ", "| usa", "united states", " - canada", "berlin", "munich", "deutschland", "germany only", "uk only", "us only", "(m/f/d)", "(m/w/d)", "m/f/d", "m/w/d", "dach"]
+        for b in block:
             if b in full:
-                print(f"[LOG] BLOCKED: {title[:50]} -> {b}")
+                print(f"[LOG] BLOCKED FAKE/UK/US: {title[:50]} -> {b}")
                 return False
         if title.lower().strip().endswith("uk") or title.lower().strip().endswith("usa"):
             return False
@@ -74,11 +74,12 @@ def fetch_only_india_no_key():
             return False
         return True
 
+    # 1. Jobicy India Geo
     try:
-        print("[LOG] Fetching Jobicy India...")
+        print("[LOG] Fetching Jobicy India Geo...")
         r = requests.get("https://jobicy.com/api/v2/remote-jobs?count=50&geo=india", timeout=30).json()
         c = 0
-        for j in r.get('jobs', [])[:40]:
+        for j in r.get('jobs', [])[:50]:
             title = j.get('jobTitle', '')
             desc = j.get('jobDescription', '')
             company = j.get('companyName', '')
@@ -90,59 +91,85 @@ def fetch_only_india_no_key():
             qual, batch, exp = parse_dynamic_full(desc, title)
             jt_full, jt_short, exp_text = detect_job_type(title, desc)
             loc = detect_location_simple(title, desc)
-            jobs.append({"title": title[:90], "company": company or "Company", "link": link, "desc": desc, "qual": qual, "batch": batch, "exp": exp_text, "loc": loc, "job_type_full": jt_full, "job_type_short": jt_short, "source": "Jobicy India"})
+            jobs.append({"title": title[:90], "company": company or "Company", "link": link, "desc": desc, "qual": qual, "batch": batch, "exp": exp_text, "loc": loc, "job_type_full": jt_full, "job_type_short": jt_short})
             c += 1
-        print(f"[LOG] Jobicy Geo Added: {c}")
-        if c == 0:
-            print("[LOG] Jobicy Geo 0 - Fallback...")
-            r2 = requests.get("https://jobicy.com/api/v2/remote-jobs?count=50", timeout=30).json()
-            for j in r2.get('jobs', [])[:30]:
+        print(f"[LOG] Jobicy India Geo Added: {c}")
+    except Exception as e:
+        print(f"[LOG] Jobicy Geo fail {e}")
+
+    # 2. Jobicy Fallback + Hyderabad search priority
+    try:
+        print("[LOG] Fetching Jobicy Fallback + Hyd Search...")
+        for api_url in ["https://jobicy.com/api/v2/remote-jobs?count=50", "https://jobicy.com/api/v2/remote-jobs?count=50&tag=hyderabad"]:
+            r = requests.get(api_url, timeout=30).json()
+            c = 0
+            for j in r.get('jobs', [])[:50]:
                 title = j.get('jobTitle', '')
                 desc = j.get('jobDescription', '')
                 company = j.get('companyName', '')
                 link = j.get('url', '')
                 if not title or not link:
                     continue
+                if is_posted(link):
+                    continue
                 if not is_allowed(title, desc, company):
                     continue
                 qual, batch, exp = parse_dynamic_full(desc, title)
                 jt_full, jt_short, exp_text = detect_job_type(title, desc)
                 loc = detect_location_simple(title, desc)
-                jobs.append({"title": title[:90], "company": company or "Company", "link": link, "desc": desc, "qual": qual, "batch": batch, "exp": exp_text, "loc": loc, "job_type_full": jt_full, "job_type_short": jt_short, "source": "Jobicy Fallback"})
+                # Avoid duplicates
+                if any(x['link'] == link for x in jobs):
+                    continue
+                jobs.append({"title": title[:90], "company": company or "Company", "link": link, "desc": desc, "qual": qual, "batch": batch, "exp": exp_text, "loc": loc, "job_type_full": jt_full, "job_type_short": jt_short})
                 c += 1
-                if c >= 10:
-                    break
-            print(f"[LOG] Jobicy Fallback Added: {c}")
+            print(f"[LOG] Jobicy {api_url[-20:]} Added: {c}")
     except Exception as e:
-        print(f"[LOG] Jobicy fail {e}")
+        print(f"[LOG] Jobicy Fallback fail {e}")
 
+    # 3. Remotive India + Hyderabad
     try:
-        print("[LOG] Fetching Remotive India...")
-        r = requests.get("https://remotive.com/api/remote-jobs?limit=50&search=india", timeout=30).json()
-        c = 0
-        for j in r.get('jobs', [])[:40]:
-            title = j.get('title', '')
-            desc = j.get('description', '')
-            company = j.get('company_name', '')
-            if not title:
-                continue
-            if not is_allowed(title, desc, company):
-                continue
-            qual, batch, exp = parse_dynamic_full(desc, title)
-            jt_full, jt_short, exp_text = detect_job_type(title, desc)
-            loc = detect_location_simple(title, desc)
-            jobs.append({"title": title[:90], "company": company or "Company", "link": j.get('url', ''), "desc": desc, "qual": qual, "batch": batch, "exp": exp_text, "loc": loc, "job_type_full": jt_full, "job_type_short": jt_short, "source": "Remotive"})
-            c += 1
-            if c >= 10:
-                break
-        print(f"[LOG] Remotive Added: {c}")
+        print("[LOG] Fetching Remotive India + Hyderabad...")
+        for search in ["india", "hyderabad", "bangalore"]:
+            r = requests.get(f"https://remotive.com/api/remote-jobs?limit=50&search={search}", timeout=30).json()
+            c = 0
+            for j in r.get('jobs', [])[:30]:
+                title = j.get('title', '')
+                desc = j.get('description', '')
+                company = j.get('company_name', '')
+                if not title:
+                    continue
+                if not is_allowed(title, desc, company):
+                    continue
+                link = j.get('url', '')
+                if any(x['link'] == link for x in jobs):
+                    continue
+                qual, batch, exp = parse_dynamic_full(desc, title)
+                jt_full, jt_short, exp_text = detect_job_type(title, desc)
+                loc = detect_location_simple(title, desc)
+                jobs.append({"title": title[:90], "company": company or "Company", "link": link, "desc": desc, "qual": qual, "batch": batch, "exp": exp_text, "loc": loc, "job_type_full": jt_full, "job_type_short": jt_short})
+                c += 1
+            print(f"[LOG] Remotive {search} Added: {c}")
     except Exception as e:
         print(f"[LOG] Remotive fail {e}")
 
-    random.shuffle(jobs)
-    print(f"[LOG] FINAL READY: {len(jobs)}")
-    for i, j in enumerate(jobs[:5]):
-        print(f"[LOG] {i+1} {j['company']} | {j['loc']} | {j['title'][:40]}")
+    # SORT: Hyderabad first, then other India cities, then Pan India
+    def sort_key(j):
+        loc = j['loc']
+        if loc == "Hyderabad":
+            return 0
+        if loc in ["Bangalore", "Chennai", "Pune", "Mumbai", "Vizag", "Vijayawada"]:
+            return 1
+        if loc == "Delhi NCR":
+            return 2
+        return 3
+
+    jobs_sorted = sorted(jobs, key=sort_key)
+    random.shuffle(jobs_sorted[6:]) # Shuffle after top 6 hyd
+    jobs = jobs_sorted
+
+    print(f"[LOG] FINAL READY: {len(jobs)} - Min 10 Guarantee")
+    for i, j in enumerate(jobs[:10]):
+        print(f"[LOG] {i+1} {j['company']} | {j['loc']} | {j['job_type_full']} | {j['title'][:45]}")
     return jobs
 
 def is_posted(link):
@@ -179,7 +206,7 @@ def post_blogger_freshersvoice(job):
         html = f"""
 <div style="font-family:Arial;line-height:1.85;max-width:800px;margin:auto;color:#1e293b;">
 <h1 style="font-size:22px;color:#0f172a;line-height:1.4;">{job['company']} {job['job_type_full']} 2026 | {job['title']} | {job['loc']}</h1>
-<p><b>HydHireHub</b> - {job['company']} is hiring for <b>{job['title']}</b> role in <b>{job['loc']}</b>. Candidates from {job['loc']} and Pan India can apply. Complete details given below.</p>
+<p><b>HydHireHub</b> - {job['company']} is hiring for <b>{job['title']}</b> in <b>{job['loc']}</b>. Check complete details below.</p>
 <table style="width:100%;border-collapse:collapse;margin:18px 0;border:1px solid #e2e8f0;font-size:14px;">
 <tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:11px;background:#f8fafc;font-weight:700;width:34%;border-right:1px solid #e2e8f0;">Company Name</td><td style="padding:11px;">{job['company']}</td></tr>
 <tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:11px;background:#f8fafc;font-weight:700;border-right:1px solid #e2e8f0;">Job Role</td><td style="padding:11px;"><b>{job['title']}</b></td></tr>
@@ -192,12 +219,12 @@ def post_blogger_freshersvoice(job):
 <h3 style="color:#0f172a;border-left:4px solid #0d6efd;padding-left:10px;margin-top:22px;">Job Description</h3>
 <p>{neat_desc}.</p>
 <h3 style="color:#0f172a;border-left:4px solid #0d6efd;padding-left:10px;">Eligibility Criteria</h3>
-<ul style="margin:8px 0 16px 18px;"><li>Qualification: {job['qual']}</li><li>Batch: {job['batch']}</li><li>Experience: {job['exp']}</li><li>Location: {job['loc']} - Hyd, Chennai, Bangalore, Pune, Mumbai, Vizag, Vijayawada</li></ul>
+<ul style="margin:8px 0 16px 18px;"><li>Qualification: {job['qual']}</li><li>Batch: {job['batch']}</li><li>Experience: {job['exp']}</li><li>Location: {job['loc']}</li></ul>
 <h3 style="color:#0f172a;border-left:4px solid #0d6efd;padding-left:10px;">How to Apply?</h3>
-<p>Click Apply Now button below to go to official {job['company']} career page. Fill details and submit.</p>
+<p>Click Apply Now to go to official {job['company']} career page.</p>
 <div style="text-align:center;margin:24px 0;"><a href="{job['link']}" style="background:#0d6efd;color:#fff;padding:13px 36px;text-decoration:none;border-radius:6px;font-weight:700;display:inline-block;">Apply Now</a></div>
-<p style="background:#fff7ed;padding:10px 12px;border-left:4px solid #f59e0b;font-size:13px;">Note: No fee. Direct official link. Only India jobs - {job['loc']}.</p>
-<p style="font-size:11px;color:#94a3b8;margin-top:18px;">Posted on {now} | HydHireHub | {job['loc']} | {job['job_type_full']}</p>
+<p style="background:#fff7ed;padding:10px 12px;border-left:4px solid #f59e0b;font-size:13px;">Note: No fee. Only India jobs - {job['loc']} priority.</p>
+<p style="font-size:11px;color:#94a3b8;margin-top:18px;">Posted on {now} | HydHireHub | {job['loc']} Jobs</p>
 </div>
 """
         msg = MIMEText(html, "html")
@@ -215,16 +242,29 @@ def post_blogger_freshersvoice(job):
 
 def get_blog_url(job):
     uid = job.get('uid', '')
-    for _ in range(6):
-        time.sleep(15)
+    print(f"[LOG] Searching blog URL for UID {uid}...")
+    time.sleep(30)
+    for attempt in range(8):
         try:
-            r = requests.get(f"{BLOG_URL}/feeds/posts/default?alt=rss&max-results=10", timeout=15)
+            print(f"[LOG] Blog URL attempt {attempt+1}/8")
+            r = requests.get(f"{BLOG_URL}/feeds/posts/default?alt=rss&max-results=25", timeout=20)
             soup = BeautifulSoup(r.text, 'xml')
-            for item in soup.find_all('item'):
-                if uid in item.title.text:
-                    return item.find('link').text
-        except:
-            pass
+            items = soup.find_all('item')
+            for item in items:
+                title = item.find('title').text if item.find('title') else ""
+                link = item.find('link').text if item.find('link') else ""
+                if uid in title:
+                    print(f"[LOG] BLOG URL FOUND: {link}")
+                    return link
+            if attempt >= 3 and items:
+                newest = items[0].find('link').text
+                if "/2026/" in newest:
+                    print(f"[LOG] BLOG URL FALLBACK newest: {newest}")
+                    return newest
+        except Exception as e:
+            print(f"[LOG] Blog URL fail {attempt+1}: {e}")
+        time.sleep(20)
+    print(f"[LOG] Returning base URL as fallback")
     return BLOG_URL
 
 def post_telegram(job, url):
@@ -240,21 +280,22 @@ def post_telegram(job, url):
 🕒 Job Type: {job['job_type_full']}
 💼 Batch: {job['batch']}
 
-🚀 Apply Now: {url}
+📄 Full Details: {url}
 
 #HydHireHub #FresherJobs #{tag_loc}Jobs
 """
         requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", data={"chat_id": CHANNEL_ID, "text": text}, timeout=15)
-        print(f"[LOG] TELEGRAM DONE Single Link - {job['loc']}")
+        print(f"[LOG] TELEGRAM DONE - {job['loc']} - Single Link")
     except Exception as e:
         print(f"[LOG] Telegram fail {e}")
 
 try:
-    print("[LOG] ===== HydHireHub FINAL STARTED =====")
+    print("[LOG] ===== HydHireHub FINAL - HYD MAX - STARTED =====")
     jobs = fetch_only_india_no_key()
-    if not jobs:
-        print("[LOG] No jobs today")
+    if len(jobs) < 3:
+        print(f"[LOG] Only {len(jobs)} jobs - Too low - Waiting next run")
         exit(0)
+    posted = 0
     for job in jobs:
         if is_posted(job['link']):
             continue
@@ -262,8 +303,9 @@ try:
             url = get_blog_url(job)
             post_telegram(job, url)
             save_link(job['link'])
+            posted += 1
             break
-    print("[LOG] ===== Finished OK - No Duplicate Links =====")
+    print(f"[LOG] ===== Finished OK - FINAL READY {len(jobs)} - HYD Priority =====")
     exit(0)
 except Exception as e:
     print(f"[LOG] MAIN FAIL {e}")
