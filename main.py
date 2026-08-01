@@ -21,7 +21,7 @@ def detect_job_type(title, desc):
     elif "fresher" in text:
         return "Off Campus Drive", "Off Campus", "Freshers"
     else:
-        return "Recruitment", "Fresher + Experienced", "0-3 Years"
+        return "Recruitment", "Fresher + Experienced", "0-3 Years Hiring"
 
 def parse_dynamic_full(desc, title):
     text = (title + " " + desc).lower()
@@ -74,7 +74,7 @@ def fetch_only_india_no_key():
             return False
         return True
 
-    try:
+        try:
         print("[LOG] Fetching Jobicy India...")
         r = requests.get("https://jobicy.com/api/v2/remote-jobs?count=50&geo=india", timeout=30).json()
         c = 0
@@ -92,7 +92,31 @@ def fetch_only_india_no_key():
             loc = detect_location_simple(title, desc)
             jobs.append({"title": title[:90], "company": company or "Company", "link": link, "desc": desc, "qual": qual, "batch": batch, "exp": exp_text, "loc": loc, "job_type_full": jt_full, "job_type_short": jt_short, "source": "Jobicy"})
             c += 1
-        print(f"[LOG] Jobicy Added: {c}")
+        print(f"[LOG] Jobicy India Geo Added: {c}")
+        # Fallback if 0 - Fetch all remote and treat as Pan India
+        if c == 0:
+            print("[LOG] Jobicy India Geo 0 - Trying fallback all remote...")
+            r2 = requests.get("https://jobicy.com/api/v2/remote-jobs?count=50", timeout=30).json()
+            for j in r2.get('jobs', [])[:30]:
+                title = j.get('jobTitle', '')
+                desc = j.get('jobDescription', '')
+                company = j.get('companyName', '')
+                link = j.get('url', '')
+                if not title or not link:
+                    continue
+                if not is_allowed(title, desc, company):
+                    continue
+                if "m/f/d" in title.lower() or "m/w/d" in title.lower():
+                    continue
+                qual, batch, exp = parse_dynamic_full(desc, title)
+                jt_full, jt_short, exp_text = detect_job_type(title, desc)
+                loc = detect_location_simple(title, desc)
+                jobs.append({"title": title[:90], "company": company or "Company", "link": link, "desc": desc, "qual": qual, "batch": batch, "exp": exp_text, "loc": loc, "job_type_full": jt_full, "job_type_short": jt_short, "source": "Jobicy Fallback"})
+                c += 1
+                if c >= 10:
+                    break
+            print(f"[LOG] Jobicy Fallback Added: {c}")
+        print(f"[LOG] Jobicy Total Added: {c}")
     except Exception as e:
         print(f"[LOG] Jobicy fail {e}")
 
