@@ -15,7 +15,7 @@ def detect_job_type(title, desc):
     if "walk" in text and "in" in text:
         return "Walk-in Drive", "Walk-in", "Walk-in Interview"
     elif "intern" in text:
-        return "Internship", "Internship", "Internship"
+        return "Internship", "Internship"
     elif "off campus" in text:
         return "Off Campus Drive", "Off Campus", "Freshers Off Campus"
     elif "fresher" in text:
@@ -63,20 +63,14 @@ def fetch_only_india_no_key():
 
     def is_allowed(title, desc, company):
         full = (title + " " + desc + " " + company).lower()
-        title_low = title.lower()
-        block_list = [" - uk", " uk ", " uk|", "| uk", "(uk)", "- uk -", " uk -", "united kingdom", "london", " - usa", " usa ", "| usa", "united states", " - canada", " - germany", " - de ", "berlin", "munich", "deutschland", "germany only", "uk only", "us only", "(m/f/d)", "(f/m/d)", "(m/w/d)", "(w/m/d)", "m/f/d", "m/w/d", "dach", "für", "ä", "ö", "ß"]
+        block_list = [" - uk", " uk ", "| uk", "(uk)", "- uk -", " uk -", "united kingdom", "london", " - usa", " usa ", "| usa", "united states", " - canada", "berlin", "munich", "deutschland", "germany only", "uk only", "us only", "(m/f/d)", "(m/w/d)", "m/f/d", "m/w/d"]
         for b in block_list:
             if b in full:
-                print(f"[LOG] BLOCKED UK/US/GERMAN: {title[:55]} -> {b}")
+                print(f"[LOG] BLOCKED: {title[:50]} -> {b}")
                 return False
-        if title_low.strip().endswith("uk") or title_low.strip().endswith("usa"):
-            print(f"[LOG] BLOCKED UK/USA SUFFIX: {title[:55]}")
+        if title.lower().strip().endswith("uk") or title.lower().strip().endswith("usa"):
             return False
-        if "westwing" in full:
-            return False
-        if "spacex" in full:
-            return False
-        if "worldwide clinical trials" in full and "uk" in full:
+        if "westwing" in full or "spacex" in full:
             return False
         return True
 
@@ -98,7 +92,7 @@ def fetch_only_india_no_key():
             loc = detect_location_simple(title, desc)
             jobs.append({"title": title[:90], "company": company or "Company", "link": link, "desc": desc, "qual": qual, "batch": batch, "exp": exp_text, "loc": loc, "job_type_full": jt_full, "job_type_short": jt_short, "source": "Jobicy India"})
             c += 1
-        print(f"[LOG] Jobicy India Geo Added: {c}")
+        print(f"[LOG] Jobicy Geo Added: {c}")
         if c == 0:
             print("[LOG] Jobicy Geo 0 - Fallback...")
             r2 = requests.get("https://jobicy.com/api/v2/remote-jobs?count=50", timeout=30).json()
@@ -146,9 +140,9 @@ def fetch_only_india_no_key():
         print(f"[LOG] Remotive fail {e}")
 
     random.shuffle(jobs)
-    print(f"[LOG] FINAL READY: {len(jobs)} - No UK/US/German - No Fake")
+    print(f"[LOG] FINAL READY: {len(jobs)}")
     for i, j in enumerate(jobs[:5]):
-        print(f"[LOG] {i+1} {j['company']} | {j['loc']} | {j['job_type_full']} | {j['title'][:45]}")
+        print(f"[LOG] {i+1} {j['company']} | {j['loc']} | {j['title'][:40]}")
     return jobs
 
 def is_posted(link):
@@ -180,30 +174,30 @@ def post_blogger_freshersvoice(job):
         soup_desc = BeautifulSoup(job['desc'], 'html.parser').get_text()
         soup_desc = re.sub(r'\s+', ' ', soup_desc).strip()
         sentences = soup_desc.split('. ')
-        neat_desc = '. '.join(sentences[:3])[:750]
+        neat_desc = '. '.join(sentences[:4])[:900]
         now = datetime.now().strftime("%d %B %Y")
         html = f"""
-<div style="font-family:Arial;line-height:1.9;max-width:800px;margin:auto;">
-<h2 style="color:#0f172a;">{job['company']} {job['job_type_full']} 2026 | {job['title']}</h2>
-<p><b>HydHireHub</b> - {job['company']} is conducting <b>{job['job_type_full']}</b> for <b>{job['title']}</b> in <b>{job['loc']}</b>. Eligible candidates can apply online. Check details below like FreshersVoice.</p>
-<table style="width:100%;border-collapse:collapse;margin:20px 0;border:1px solid #e2e8f0;font-size:15px;">
-<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:12px;background:#f8fafc;font-weight:bold;width:35%;border-right:1px solid #e2e8f0;">Company Name</td><td style="padding:12px;"><b>{job['company']}</b></td></tr>
-<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:12px;background:#f8fafc;font-weight:bold;border-right:1px solid #e2e8f0;">Job Role</td><td style="padding:12px;">{job['title']}</td></tr>
-<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:12px;background:#f8fafc;font-weight:bold;border-right:1px solid #e2e8f0;">Location</td><td style="padding:12px;"><b>{job['loc']}</b></td></tr>
-<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:12px;background:#f8fafc;font-weight:bold;border-right:1px solid #e2e8f0;">Qualification</td><td style="padding:12px;">{job['qual']}</td></tr>
-<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:12px;background:#f8fafc;font-weight:bold;border-right:1px solid #e2e8f0;">Batch</td><td style="padding:12px;">{job['batch']}</td></tr>
-<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:12px;background:#f8fafc;font-weight:bold;border-right:1px solid #e2e8f0;">Experience</td><td style="padding:12px;">{job['exp']}</td></tr>
-<tr><td style="padding:12px;background:#f8fafc;font-weight:bold;border-right:1px solid #e2e8f0;">Job Type</td><td style="padding:12px;">{job['job_type_full']}</td></tr>
+<div style="font-family:Arial;line-height:1.85;max-width:800px;margin:auto;color:#1e293b;">
+<h1 style="font-size:22px;color:#0f172a;line-height:1.4;">{job['company']} {job['job_type_full']} 2026 | {job['title']} | {job['loc']}</h1>
+<p><b>HydHireHub</b> - {job['company']} is hiring for <b>{job['title']}</b> role in <b>{job['loc']}</b>. Candidates from {job['loc']} and Pan India can apply. Complete details given below.</p>
+<table style="width:100%;border-collapse:collapse;margin:18px 0;border:1px solid #e2e8f0;font-size:14px;">
+<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:11px;background:#f8fafc;font-weight:700;width:34%;border-right:1px solid #e2e8f0;">Company Name</td><td style="padding:11px;">{job['company']}</td></tr>
+<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:11px;background:#f8fafc;font-weight:700;border-right:1px solid #e2e8f0;">Job Role</td><td style="padding:11px;"><b>{job['title']}</b></td></tr>
+<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:11px;background:#f8fafc;font-weight:700;border-right:1px solid #e2e8f0;">Location</td><td style="padding:11px;"><b>{job['loc']}</b></td></tr>
+<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:11px;background:#f8fafc;font-weight:700;border-right:1px solid #e2e8f0;">Qualification</td><td style="padding:11px;">{job['qual']}</td></tr>
+<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:11px;background:#f8fafc;font-weight:700;border-right:1px solid #e2e8f0;">Batch</td><td style="padding:11px;">{job['batch']}</td></tr>
+<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:11px;background:#f8fafc;font-weight:700;border-right:1px solid #e2e8f0;">Experience</td><td style="padding:11px;">{job['exp']}</td></tr>
+<tr><td style="padding:11px;background:#f8fafc;font-weight:700;border-right:1px solid #e2e8f0;">Job Type</td><td style="padding:11px;">{job['job_type_full']}</td></tr>
 </table>
-<h3 style="color:#1e293b;border-left:4px solid #0d6efd;padding-left:10px;">Job Description</h3>
+<h3 style="color:#0f172a;border-left:4px solid #0d6efd;padding-left:10px;margin-top:22px;">Job Description</h3>
 <p>{neat_desc}.</p>
-<h3 style="color:#1e293b;border-left:4px solid #0d6efd;padding-left:10px;">Eligibility Criteria</h3>
-<ul style="line-height:1.9;"><li><b>Qualification:</b> {job['qual']}</li><li><b>Batch:</b> {job['batch']} can apply</li><li><b>Location:</b> {job['loc']} - Hyd, Chennai, Bangalore, Pune, Mumbai, Vizag, Vijayawada</li><li><b>Experience:</b> {job['exp']}</li></ul>
-<h3 style="color:#1e293b;border-left:4px solid #0d6efd;padding-left:10px;">How to Apply for {job['company']} {job['loc']}?</h3>
-<ol style="line-height:1.9;"><li>Click Apply Now button below</li><li>You will be redirected to {job['company']} official career page</li><li>Fill details and submit application</li></ol>
-<div style="text-align:center;margin:30px 0;"><a href="{job['link']}" style="background:#0d6efd;color:#fff;padding:14px 40px;text-decoration:none;border-radius:6px;font-weight:bold;display:inline-block;">Apply Now</a></div>
-<p style="background:#fff7ed;padding:12px;border-left:4px solid #f97316;font-size:14px;"><b>Note:</b> HydHireHub does not charge any fee. Direct official link only. Only India jobs - {job['loc']}.</p>
-<p style="font-size:12px;color:#94a3b8;">Posted on {now} by HydHireHub | {job['loc']} Jobs | {job['job_type_full']} | FreshersVoice Style</p>
+<h3 style="color:#0f172a;border-left:4px solid #0d6efd;padding-left:10px;">Eligibility Criteria</h3>
+<ul style="margin:8px 0 16px 18px;"><li>Qualification: {job['qual']}</li><li>Batch: {job['batch']}</li><li>Experience: {job['exp']}</li><li>Location: {job['loc']} - Hyd, Chennai, Bangalore, Pune, Mumbai, Vizag, Vijayawada</li></ul>
+<h3 style="color:#0f172a;border-left:4px solid #0d6efd;padding-left:10px;">How to Apply?</h3>
+<p>Click Apply Now button below to go to official {job['company']} career page. Fill details and submit.</p>
+<div style="text-align:center;margin:24px 0;"><a href="{job['link']}" style="background:#0d6efd;color:#fff;padding:13px 36px;text-decoration:none;border-radius:6px;font-weight:700;display:inline-block;">Apply Now</a></div>
+<p style="background:#fff7ed;padding:10px 12px;border-left:4px solid #f59e0b;font-size:13px;">Note: No fee. Direct official link. Only India jobs - {job['loc']}.</p>
+<p style="font-size:11px;color:#94a3b8;margin-top:18px;">Posted on {now} | HydHireHub | {job['loc']} | {job['job_type_full']}</p>
 </div>
 """
         msg = MIMEText(html, "html")
@@ -213,7 +207,7 @@ def post_blogger_freshersvoice(job):
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as s:
             s.login(YOUR_GMAIL, APP_PASSWORD)
             s.send_message(msg)
-        print(f"[LOG] BLOGGER SENT [{job['job_type_full']}] {job['company']} - {job['loc']}")
+        print(f"[LOG] BLOGGER SENT {job['company']} - {job['loc']}")
         return True
     except Exception as e:
         print(f"[LOG] BLOGGER FAIL {e}")
@@ -235,7 +229,7 @@ def get_blog_url(job):
 
 def post_telegram(job, url):
     try:
-        tag_loc = job['loc'].replace(' ', '').replace('(', '').replace(')', '').replace('/', '')
+        tag_loc = job['loc'].replace(' ', '').replace('(', '').replace(')', '').replace('/', '').replace('-', '')
         text = f"""{job['company']} {job['job_type_full']} 2026 | {job['title']} | {job['loc']} | Apply Online
 
 💼 Job Title: {job['title']}
@@ -246,22 +240,20 @@ def post_telegram(job, url):
 🕒 Job Type: {job['job_type_full']}
 💼 Batch: {job['batch']}
 
-Apply now: {url}
-
-{url}
+🚀 Apply Now: {url}
 
 #HydHireHub #FresherJobs #{tag_loc}Jobs
 """
         requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", data={"chat_id": CHANNEL_ID, "text": text}, timeout=15)
-        print(f"[LOG] TELEGRAM DONE - {job['loc']} - RealityDefine Style")
+        print(f"[LOG] TELEGRAM DONE Single Link - {job['loc']}")
     except Exception as e:
         print(f"[LOG] Telegram fail {e}")
 
 try:
-    print("[LOG] ===== HydHireHub FINAL - NO UK/US/GERMAN - STARTED =====")
+    print("[LOG] ===== HydHireHub FINAL STARTED =====")
     jobs = fetch_only_india_no_key()
     if not jobs:
-        print("[LOG] No jobs today - will retry next run")
+        print("[LOG] No jobs today")
         exit(0)
     for job in jobs:
         if is_posted(job['link']):
@@ -270,9 +262,8 @@ try:
             url = get_blog_url(job)
             post_telegram(job, url)
             save_link(job['link'])
-            print(f"[LOG] SUCCESS - {job['company']} - {job['loc']} - No Fake")
             break
-    print("[LOG] ===== Finished OK - No UK/US/German - No Fake Links =====")
+    print("[LOG] ===== Finished OK - No Duplicate Links =====")
     exit(0)
 except Exception as e:
     print(f"[LOG] MAIN FAIL {e}")
