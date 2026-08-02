@@ -242,26 +242,24 @@ def post_blogger_freshersvoice(job):
 
 def get_blog_url(job):
     uid = job.get('uid', '')
-    print(f"[LOG] Searching blog URL for UID {uid} - 4 mins wait for Blogger...")
+    print(f"[LOG] Searching blog URL for UID {uid} - 4 mins...")
     time.sleep(40)
     for attempt in range(10):
         try:
-            print(f"[LOG] Blog URL attempt {attempt+1}/10 for UID {uid}")
+            print(f"[LOG] Blog attempt {attempt+1}/10 UID {uid}")
             r = requests.get(f"{BLOG_URL}/feeds/posts/default?alt=rss&max-results=30", timeout=20)
             soup = BeautifulSoup(r.text, 'xml')
             for item in soup.find_all('item'):
                 title = item.find('title').text if item.find('title') else ""
                 link = item.find('link').text if item.find('link') else ""
                 if uid in title:
-                    print(f"[LOG] BLOG URL FOUND EXACT UID: {link}")
-                    return link
+                    print(f"[LOG] BLOG URL FOUND: {link}")
+                    return link, True
         except Exception as e:
             print(f"[LOG] Blog URL fail {attempt+1}: {e}")
         time.sleep(25)
-    # If still not found - Return search URL with UID so user can find
-    fallback_search = f"{BLOG_URL}/search?q={uid}"
-    print(f"[LOG] BLOG URL NOT FOUND after 4 mins - Returning search: {fallback_search}")
-    return fallback_search
+    print(f"[LOG] BLOG URL NOT FOUND - Blogger Email posting failed! Check BLOGGER_EMAIL secret")
+    return f"{BLOG_URL}/search?q={uid}", False
 
 def post_telegram(job, url):
     try:
@@ -311,20 +309,23 @@ def post_telegram(job, url):
 try:
     print("[LOG] ===== HydHireHub FINAL - HYD MAX - STARTED =====")
     jobs = fetch_only_india_no_key()
-    if len(jobs) < 3:
-        print(f"[LOG] Only {len(jobs)} jobs - Too low - Waiting next run")
+    if len(jobs) < 5:
+        print(f"[LOG] Only {len(jobs)} jobs - low")
         exit(0)
-    posted = 0
     for job in jobs:
         if is_posted(job['link']):
             continue
         if post_blogger_freshersvoice(job):
-            url = get_blog_url(job)
+            url, found = get_blog_url(job)
+            if not found:
+                print(f"[LOG] BLOG NOT FOUND - Skipping Telegram - Check BLOGGER_EMAIL secret! UID {job['uid']}")
+                # Do NOT save link, so next run will retry different job
+                # Also do NOT post telegram with search link
+                break
             post_telegram(job, url)
             save_link(job['link'])
-            posted += 1
             break
-    print(f"[LOG] ===== Finished OK - FINAL READY {len(jobs)} - HYD Priority =====")
+    print(f"[LOG] ===== Finished =====")
     exit(0)
 except Exception as e:
     print(f"[LOG] MAIN FAIL {e}")
