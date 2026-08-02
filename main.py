@@ -250,7 +250,7 @@ def post_blogger_freshersvoice(job):
 <ul style="margin:8px 0 16px 18px;"><li>Qualification: {job['qual']}</li><li>Batch: {job['batch']}</li><li>Experience: {job['exp']}</li><li>Location: {job['loc']}</li></ul>
 <h3 style="color:#0f172a;border-left:4px solid #0d6efd;padding-left:10px;">How to Apply?</h3>
 <p>Click Apply Now to go to official {job['company']} career page.</p>
-<div style="text-align:center;margin:24px 0;"><a href="{job['link']}" style="background:#0d6efd;color:#fff;padding:13px 36px;text-decoration:none;border-radius:6px;font-weight:700;display:inline-block;">Apply Now - Official Link</a></div>
+<div style="text-align:center;margin:24px 0;"><a href="{job['link']}" style="background:#0d6efd;color:#fff;padding:13px 36px;text-decoration:none;border-radius:6px;font-weight:700;display:inline-block;">Apply Now</a></div>
 <p style="background:#fff7ed;padding:10px 12px;border-left:4px solid #f59e0b;font-size:13px;">Note: No fee. Only India jobs - {job['loc']} priority.</p>
 <p style="font-size:11px;color:#94a3b8;margin-top:18px;">Posted on {now} | HydHireHub | {job['loc']} Jobs</p>
 </div>
