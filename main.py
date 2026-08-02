@@ -242,33 +242,52 @@ def post_blogger_freshersvoice(job):
 
 def get_blog_url(job):
     uid = job.get('uid', '')
-    print(f"[LOG] Searching blog URL for UID {uid}...")
-    time.sleep(30)
-    for attempt in range(8):
+    print(f"[LOG] Searching blog URL for UID {uid} - 4 mins wait for Blogger...")
+    time.sleep(40)
+    for attempt in range(10):
         try:
-            print(f"[LOG] Blog URL attempt {attempt+1}/8")
-            r = requests.get(f"{BLOG_URL}/feeds/posts/default?alt=rss&max-results=25", timeout=20)
+            print(f"[LOG] Blog URL attempt {attempt+1}/10 for UID {uid}")
+            r = requests.get(f"{BLOG_URL}/feeds/posts/default?alt=rss&max-results=30", timeout=20)
             soup = BeautifulSoup(r.text, 'xml')
-            items = soup.find_all('item')
-            for item in items:
+            for item in soup.find_all('item'):
                 title = item.find('title').text if item.find('title') else ""
                 link = item.find('link').text if item.find('link') else ""
                 if uid in title:
-                    print(f"[LOG] BLOG URL FOUND: {link}")
+                    print(f"[LOG] BLOG URL FOUND EXACT UID: {link}")
                     return link
-            if attempt >= 3 and items:
-                newest = items[0].find('link').text
-                if "/2026/" in newest:
-                    print(f"[LOG] BLOG URL FALLBACK newest: {newest}")
-                    return newest
         except Exception as e:
             print(f"[LOG] Blog URL fail {attempt+1}: {e}")
-        time.sleep(20)
-    print(f"[LOG] Returning base URL as fallback")
-    return BLOG_URL
+        time.sleep(25)
+    # If still not found - Return search URL with UID so user can find
+    fallback_search = f"{BLOG_URL}/search?q={uid}"
+    print(f"[LOG] BLOG URL NOT FOUND after 4 mins - Returning search: {fallback_search}")
+    return fallback_search
 
 def post_telegram(job, url):
     try:
+        # Check if this blog url was already posted before
+        last_blog_file = 'last_blog_url.txt'
+        if os.path.exists(last_blog_file):
+            with open(last_blog_file, 'r') as f:
+                last_url = f.read().strip()
+                if last_url == url and "search?q=" not in url:
+                    print(f"[LOG] DUPLICATE BLOG URL DETECTED: {url} - Waiting 60 sec and retrying RSS...")
+                    time.sleep(60)
+                    # Retry once more to get correct URL
+                    r = requests.get(f"{BLOG_URL}/feeds/posts/default?alt=rss&max-results=30", timeout=20)
+                    soup = BeautifulSoup(r.text, 'xml')
+                    for item in soup.find_all('item'):
+                        title = item.find('title').text if item.find('title') else ""
+                        link = item.find('link').text if item.find('link') else ""
+                        if job.get('uid','') in title:
+                            url = link
+                            print(f"[LOG] RETRY FOUND CORRECT URL: {url}")
+                            break
+        
+        # Save this url
+        with open(last_blog_file, 'w') as f:
+            f.write(url)
+
         tag_loc = job['loc'].replace(' ', '').replace('(', '').replace(')', '').replace('/', '').replace('-', '')
         text = f"""{job['company']} {job['job_type_full']} 2026 | {job['title']} | {job['loc']} | Apply Online
 
@@ -285,7 +304,7 @@ def post_telegram(job, url):
 #HydHireHub #FresherJobs #{tag_loc}Jobs
 """
         requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", data={"chat_id": CHANNEL_ID, "text": text}, timeout=15)
-        print(f"[LOG] TELEGRAM DONE - {job['loc']} - Single Link")
+        print(f"[LOG] TELEGRAM DONE - {job['loc']} - Unique Link: {url[:60]}")
     except Exception as e:
         print(f"[LOG] Telegram fail {e}")
 
