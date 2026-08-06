@@ -16,47 +16,38 @@ SEEN_ROLES = set()
 def is_fulltime_tech_job(title, desc, company):
     full = (title + " " + desc + " " + company).lower()
 
-    # 1. INTERNSHIP + GERMAN FAKE BLOCK
-    if any(x in full for x in ["internship", " stipend", "pflichtpraktikum", "pflicht", "praktikum", "werkstudent", "grafikdesign", "sozial", "gmbh"]):
-        print(f"[LOG] BLOCKED FAKE/INTERN: {title[:50]}")
+    # 1. GERMAN + FAKE + INTERN 100% BLOCK - Adsense violation fix
+    if any(x in full for x in ["pflichtpraktikum", "pflicht", "praktikum", "werkstudent", "grafikdesign", "sozial", "elektromeister", "technischer", "dozent", "gmbh", "m/w/d", "m/f/x", "dach", "berlin", "munich", "hamburg", "belo horizonte", "montevideo", "sao paulo", "internship", " stipend"]):
         return False
 
-    # 2. FOREIGN COUNTRY BLOCK - Adsense violation fix
-    foreign = ["united kingdom", "london", "berlin", "munich", "hamburg", "deutschland", "usa only", "uk only", "canada only", "(m/w/d)", "m/w/d", "dach", "france", "spain"]
-    if any(x in full for x in foreign):
-        print(f"[LOG] BLOCKED FOREIGN: {title[:50]}")
+    # 2. USA/UK ONLY JOBS BLOCK - But India remote ok
+    if any(x in full for x in ["united states -", "united kingdom", "london -", "cst timezone", "est timezone", "pst timezone", "united states content reviewer"]):
         return False
 
-    # 3. INDIA MUST - Lekapothe foreign job ye
-    if not any(loc in full for loc in ["india", "hyderabad", "bangalore", "bengaluru", "chennai", "pune", "mumbai", "delhi", "noida", "gurgaon"]):
-        print(f"[LOG] BLOCKED NO INDIA: {title[:50]}")
-        return False
-
-    # 4. TECH STACK MUST
+    # 3. TECH STACK MUST - Java/Python/SQL/React/Data Analyst/Gen AI/Full Stack
     if not any(k.lower() in full for k in TECH_KEYWORDS):
         return False
 
-    # 5. DUPLICATE COMPANY ROLE BLOCK - Same company repeat vaddu
+    # 4. DUPLICATE BLOCK
     clean_title = re.sub(r'\|\s*\d+\s*$', '', title).lower()
     role_key = re.sub(r'2026|2025|\(|\)|\|.*', '', clean_title).strip()[:50]
     dup_key = f"{company.lower().strip()}|{role_key}"
     if dup_key in SEEN_ROLES:
-        print(f"[LOG] BLOCKED DUPLICATE: {dup_key[:50]}")
         return False
     SEEN_ROLES.add(dup_key)
     return True
 
 def detect_location_simple(title, desc):
     full = (title + " " + desc).lower()
+    # India locations unte ade - Lekapothe Pan India (WFH) - German kakunda tech job kabatti Pan India ok
     if "hyderabad" in full: return "Hyderabad"
     if "bangalore" in full or "bengaluru" in full: return "Bangalore"
     if "chennai" in full: return "Chennai"
     if "pune" in full: return "Pune"
     if "mumbai" in full: return "Mumbai"
     if "delhi" in full or "noida" in full: return "Delhi NCR"
-    if "vizag" in full: return "Vizag"
-    if "vijayawada" in full: return "Vijayawada"
-    return "Pan India"
+    # Tech job ayithe India WFH ga treat chey - Fake kadu
+    return "Pan India (WFH) - India"
 
 def parse_dynamic_full(desc, title):
     text = (title + " " + desc).lower()
