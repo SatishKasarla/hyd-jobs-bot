@@ -80,51 +80,62 @@ def detect_job_type(title, desc):
 
 def fetch_only_india_no_key():
     jobs = []
-    print("[LOG] FINAL - TECH FILTER + HYD/BLR/CHENNAI/PUNE + NO DUPLICATE")
+    print("[LOG] FINAL - TECH FILTER + HYD/BLR/CHN/PUNE + NO DUPLICATE")
 
-    # 1. JOBICY WITH TECH KEYWORDS - Hyderabad priority
-    for keyword in TECH_KEYWORDS[:6]: # Java, Python, SQL, Data Analyst, React, Web
+    def safe_json_get(url):
         try:
-            for geo in ["hyderabad", "india", "bangalore"]:
-                url = f"https://jobicy.com/api/v2/remote-jobs?count=30&tag={keyword.lower().replace(' ', '-')}&geo={geo}"
-                # Fallback without geo also
-                r = requests.get(url, timeout=20).json()
-                c = 0
-                for j in r.get('jobs', [])[:20]:
-                    title = j.get('jobTitle',''); desc = j.get('jobDescription',''); company = j.get('companyName',''); link = j.get('url','')
-                    if not title or not link: continue
-                    if is_posted(link): continue
-                    if not is_fulltime_tech_job(title, desc, company): continue
-                    if any(x['link']==link for x in jobs): continue
-                    qual,batch,exp = parse_dynamic_full(desc, title)
-                    jt_full, jt_short = detect_job_type(title, desc)
-                    loc = detect_location_simple(title, desc)
-                    jobs.append({"title":title[:90],"company":company or "Company","link":link,"desc":desc,"qual":qual,"batch":batch,"exp":exp,"loc":loc,"job_type_full":jt_full,"job_type_short":jt_short})
-                    c+=1
-                if c>0: print(f"[LOG] Jobicy {keyword} {geo} Added: {c}")
+            r = requests.get(url, timeout=30, headers={"User-Agent":"Mozilla/5.0"})
+            if r.status_code!= 200:
+                print(f"[LOG] API {url[:40]} Status {r.status_code}")
+                return None
+            if not r.text.strip().startswith('{'):
+                print(f"[LOG] API {url[:40]} Not JSON")
+                return None
+            return r.json()
         except Exception as e:
-            print(f"[LOG] Jobicy {keyword} fail {e}")
+            print(f"[LOG] API Fail {url[:40]} {e}")
+            return None
 
-    # 2. REMOTIVE WITH TECH KEYWORDS
-    for keyword in TECH_KEYWORDS:
-        try:
-            r = requests.get(f"https://remotive.com/api/remote-jobs?limit=30&search={keyword} india", timeout=20).json()
-            c=0
-            for j in r.get('jobs', [])[:20]:
-                title=j.get('title',''); desc=j.get('description',''); company=j.get('company_name',''); link=j.get('url','')
-                if not title: continue
-                if not is_fulltime_tech_job(title, desc, company): continue
-                if any(x['link']==link for x in jobs): continue
-                qual,batch,exp = parse_dynamic_full(desc, title)
-                jt_full, jt_short = detect_job_type(title, desc)
-                loc = detect_location_simple(title, desc)
-                jobs.append({"title":title[:90],"company":company or "Company","link":link,"desc":desc,"qual":qual,"batch":batch,"exp":exp,"loc":loc,"job_type_full":jt_full,"job_type_short":jt_short})
-                c+=1
-            if c>0: print(f"[LOG] Remotive {keyword} Added: {c}")
-        except Exception as e:
-            print(f"[LOG] Remotive {keyword} fail {e}")
+    # 1. JOBICY - No tag, full fetch then tech filter
+    for api_url in [
+        "https://jobicy.com/api/v2/remote-jobs?count=50&geo=india",
+        "https://jobicy.com/api/v2/remote-jobs?count=50",
+        "https://jobicy.com/api/v2/remote-jobs?count=50&geo=usa"
+    ]:
+        data = safe_json_get(api_url)
+        if not data: continue
+        c = 0
+        for j in data.get('jobs', [])[:50]:
+            title = j.get('jobTitle',''); desc = j.get('jobDescription',''); company = j.get('companyName',''); link = j.get('url','')
+            if not title or not link: continue
+            if is_posted(link): continue
+            if not is_fulltime_tech_job(title, desc, company): continue
+            if any(x['link']==link for x in jobs): continue
+            qual,batch,exp = parse_dynamic_full(desc, title)
+            jt_full, jt_short = detect_job_type(title, desc)
+            loc = detect_location_simple(title, desc)
+            jobs.append({"title":title[:90],"company":company or "Company","link":link,"desc":desc,"qual":qual,"batch":batch,"exp":exp,"loc":loc,"job_type_full":jt_full,"job_type_short":jt_short})
+            c+=1
+        print(f"[LOG] Jobicy {api_url[-20:]} Added: {c} | Total: {len(jobs)}")
 
-    # SORT: Hyd > Bangalore > Chennai > Pune > Others
+    # 2. REMOTIVE - Tech keywords
+    for keyword in TECH_KEYWORDS[:5]:
+        data = safe_json_get(f"https://remotive.com/api/remote-jobs?limit=30&search={keyword} India")
+        if not data: continue
+        c=0
+        for j in data.get('jobs', [])[:20]:
+            title=j.get('title',''); desc=j.get('description',''); company=j.get('company_name',''); link=j.get('url','')
+            if not title: continue
+            if is_posted(link): continue
+            if not is_fulltime_tech_job(title, desc, company): continue
+            if any(x['link']==link for x in jobs): continue
+            qual,batch,exp = parse_dynamic_full(desc, title)
+            jt_full, jt_short = detect_job_type(title, desc)
+            loc = detect_location_simple(title, desc)
+            jobs.append({"title":title[:90],"company":company or "Company","link":link,"desc":desc,"qual":qual,"batch":batch,"exp":exp,"loc":loc,"job_type_full":jt_full,"job_type_short":jt_short})
+            c+=1
+        if c>0: print(f"[LOG] Remotive {keyword} Added: {c}")
+
     def sort_key(j):
         if j['loc']=="Hyderabad": return 0
         if j['loc']=="Bangalore": return 1
@@ -133,6 +144,8 @@ def fetch_only_india_no_key():
         return 4
     jobs = sorted(jobs, key=sort_key)
     print(f"[LOG] FINAL READY: {len(jobs)} - Tech Filtered - {jobs[0]['loc'] if jobs else 'None'}")
+    for i, j in enumerate(jobs[:5]):
+        print(f"[LOG] {i+1} {j['company']} | {j['loc']} | {j['title'][:40]}")
     return jobs
 
 def is_posted(link):
