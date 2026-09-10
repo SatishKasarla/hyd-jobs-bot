@@ -29,6 +29,8 @@ jobs:
           YOUR_GMAIL: ${{ secrets.YOUR_GMAIL }}
           APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
           BLOGGER_EMAIL: ${{ secrets.BLOGGER_EMAIL }}
+          ADZUNA_ID: ${{ secrets.ADZUNA_ID }}
+          ADZUNA_KEY: ${{ secrets.ADZUNA_KEY }}
         run: |
           python main.py || echo "Bot finished"
 
