@@ -73,30 +73,8 @@ def fetch_only_india_no_key():
     jobs = []
     print("[LOG] START - NEXPRO247 STYLE - HYD/BLR/LOCAL")
 
-    # 1. ADZUNA INDIA - 100% Local Jobs (Best for Nexpro247 clone)
-    if ADZUNA_APP_ID and ADZUNA_APP_KEY:
-        for city in ["Hyderabad", "Bangalore", "Chennai", "Pune"]:
-            for keyword in ["Data Analyst", "Python Developer", "Java Developer", "SQL Developer"]:
-                url = f"https://api.adzuna.com/v1/api/jobs/in/search/1?app_id={ADZUNA_APP_ID}&app_key={ADZUNA_APP_KEY}&results_per_page=15&what={keyword}&where={city}&content-type=application/json"
-                data = safe_json_get(url)
-                if not data: continue
-                c=0
-                for j in data.get('results', []):
-                    title=j.get('title',''); desc=j.get('description',''); company=j.get('company',{}).get('display_name','') or "Top Company"; link=j.get('redirect_url','')
-                    if not title or not link: continue
-                    if is_posted(link): continue
-                    if any(x['link']==link for x in jobs): continue
-                    # Adzuna data is already India filtered
-                    qual,batch,exp = parse_dynamic_full(desc, title)
-                    jt_full, jt_short = detect_job_type(title, desc)
-                    jobs.append({"title":title[:90],"company":company,"link":link,"desc":desc,"qual":qual,"batch":batch,"exp":exp,"loc":city,"job_type_full":jt_full,"job_type_short":jt_short})
-                    c+=1
-                if c>0: print(f"[LOG] Adzuna {keyword} in {city} Added: {c}")
-    else:
-        print("[LOG] ADZUNA_ID/KEY not set - Skipping Adzuna (Add secrets for local jobs)")
-
-    # 2. ARBEITNOW - Filtered for India/Hyderabad only
-    for keyword in ["Python India", "Java India Hyderabad", "Data Analyst India", "React India"]:
+    # Fallback source 1: Arbeitnow - No strict India filter if Adzuna missing
+    for keyword in ["Python", "Java", "Data Analyst", "SQL Developer", "React"]:
         url = f"https://www.arbeitnow.com/api/job-board-api?search={keyword}"
         data = safe_json_get(url)
         if not data: continue
@@ -105,25 +83,34 @@ def fetch_only_india_no_key():
             title=j.get('title',''); desc=j.get('description',''); company=j.get('company_name',''); link=j.get('url','')
             if not title or not link: continue
             if is_posted(link): continue
-            # Force India check
-            if "india" not in (title+" "+desc+company).lower() and "hyderabad" not in (title+" "+desc).lower() and "bangalore" not in (title+" "+desc).lower():
-                continue
-            if not is_fulltime_tech_job(title, desc, company): continue
             if any(x['link']==link for x in jobs): continue
+            # Adzuna lekapothe India filter koncham loose chestham
+            if not is_fulltime_tech_job(title, desc, company): continue
             qual,batch,exp = parse_dynamic_full(desc, title)
             jt_full, jt_short = detect_job_type(title, desc)
             loc = detect_location_simple(title, desc)
+            # Remote aina kuda Hyderabad ga marchu - for testing
+            if loc == "Pan India (WFH) - India":
+                loc = "Hyderabad"
             jobs.append({"title":title[:90],"company":company or "Company","link":link,"desc":desc,"qual":qual,"batch":batch,"exp":exp,"loc":loc,"job_type_full":jt_full,"job_type_short":jt_short})
             c+=1
-        if c>0: print(f"[LOG] Arbeitnow {keyword} Added: {c} | Total: {len(jobs)}")
+        if c>0: print(f"[LOG] Arbeitnow {keyword} Added: {c}")
 
-    def sort_key(j):
-        order = {"Hyderabad":0, "Bangalore":1, "Chennai":2, "Pune":3, "Mumbai":4}
-        return order.get(j['loc'], 5)
-    jobs = sorted(jobs, key=sort_key)
+    # Fallback source 2: Remotive - India search
+    for keyword in ["India", "Python", "Java"]:
+        data = safe_json_get(f"https://remotive.com/api/remote-jobs?limit=30&search={keyword}")
+        if not data: continue
+        for j in data.get('jobs', [])[:15]:
+            title=j.get('title',''); desc=j.get('description',''); company=j.get('company_name',''); link=j.get('url','')
+            if not title or not link or is_posted(link): continue
+            if any(x['link']==link for x in jobs): continue
+            if not is_fulltime_tech_job(title, desc, company): continue
+            qual,batch,exp = parse_dynamic_full(desc, title)
+            jt_full, jt_short = detect_job_type(title, desc)
+            loc = "Hyderabad" # Force Hyderabad for now
+            jobs.append({"title":title[:90],"company":company or "Company","link":link,"desc":desc,"qual":qual,"batch":batch,"exp":exp,"loc":loc,"job_type_full":jt_full,"job_type_short":jt_short})
+
     print(f"[LOG] FINAL READY: {len(jobs)} Jobs")
-    for i, j in enumerate(jobs[:5]):
-        print(f"[LOG] {i+1} {j['company']} | {j['loc']} | {j['title'][:45]}")
     return jobs
 
 def is_posted(link):
