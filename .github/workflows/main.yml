@@ -1,47 +1,33 @@
-name: Hyd Jobs Bot 
-
+name: Hyd Hire Hub Auto Jobs
 on:
   schedule:
-    - cron: '0 */6 * * *'
-  workflow_dispatch:
+    - cron: '0 3,9 * * *' # Roju 2 sarlu: Morning 8:30 IST & Afternoon 2:30 IST
+  workflow_dispatch: # Manual ga test cheyadaniki button
 
 jobs:
-  bot:
+  run:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v6
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip --quiet
-          pip install requests beautifulsoup4 lxml --quiet
-
-      - name: Run Hyd Jobs Bot
+      - run: pip install requests
+      - run: python fetch_jobs.py
         env:
-          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-          CHANNEL_ID: ${{ secrets.CHANNEL_ID }}
-          YOUR_GMAIL: ${{ secrets.YOUR_GMAIL }}
-          APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
+          ADZUNA_APP_ID: ${{ secrets.ADZUNA_APP_ID }}
+          ADZUNA_APP_KEY: ${{ secrets.ADZUNA_APP_KEY }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_PASS: ${{ secrets.GMAIL_PASS }}
           BLOGGER_EMAIL: ${{ secrets.BLOGGER_EMAIL }}
-          ADZUNA_ID: ${{ secrets.ADZUNA_ID }}
-          ADZUNA_KEY: ${{ secrets.ADZUNA_KEY }}
+      - name: Save posted jobs
         run: |
-          python main.py || echo "Bot finished"
-
-      - name: Save posted jobs history
-        run: |
-          git config --global user.name "HydHireHub Bot"
-          git config --global user.email "bot@hydhirehub.com"
-          if [ -f posted.json ]; then
-            git add posted.json
-            git commit -m "Update Hyd jobs - $(date)" || echo "No changes"
-            git push || echo "Push done"
-          else
-            echo "No posted.json yet"
-          fi
+          git config user.name "Auto Bot"
+          git config user.email "bot@hydhirehub.com"
+          git add posted.json
+          git commit -m "Updated posted jobs" || echo "No changes"
+          git push
